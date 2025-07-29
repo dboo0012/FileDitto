@@ -1,50 +1,588 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
+import { Settings, FileText, Trash2, Download, AlertTriangle, Folder } from 'lucide-react';
 import "./App.css";
+import { FileUploadZone } from './components/FileUploadZone';
+import { FileListItem, FileItem } from './components/FileListItem';
+import { MetadataModal } from './components/MetadataModal';
+import { SettingsPanel } from './components/SettingsPanel';
+import { TauriAPI } from './utils/tauri';
+import { ConversionOptions, ConversionProgress, ConversionResult } from './types/tauri';
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('');
+  const [selectedQuality, setSelectedQuality] = useState('medium');
+  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+  const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [outputDirectory, setOutputDirectory] = useState<string>('');
+  const [preserveMetadata, setPreserveMetadata] = useState(true);
+  const [ffmpegAvailable, setFFmpegAvailable] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  // Check FFmpeg availability on startup
+  useEffect(() => {
+    checkFFmpegAvailability();
+  }, []);
+
+  // Set up event listeners for conversion progress and completion
+  useEffect(() => {
+    let progressUnlisten: (() => void) | null = null;
+    let completeUnlisten: (() => void) | null = null;
+
+    const setupListeners = async () => {
+      // Listen for conversion progress updates
+      progressUnlisten = await TauriAPI.listenToConversionProgress((progress: ConversionProgress) => {
+        setFiles(prev => prev.map(file => 
+          file.conversionId === progress.id 
+            ? { 
+                ...file, 
+                progress: progress.progress,
+                status: progress.status === 'Converting' ? 'converting' : file.status
+              }
+            : file
+        ));
+      });
+
+      // Listen for conversion completion
+      completeUnlisten = await TauriAPI.listenToConversionComplete((result: ConversionResult) => {
+        setFiles(prev => prev.map(file => 
+          file.conversionId === result.id 
+            ? { 
+                ...file, 
+                status: result.success ? 'completed' : 'error',
+                progress: result.success ? 100 : file.progress,
+                errorMessage: result.error || undefined
+              }
+            : file
+        ));
+      });
+    };
+
+    setupListeners();
+
+    return () => {
+      if (progressUnlisten) progressUnlisten();
+      if (completeUnlisten) completeUnlisten();
+    };
+  }, []);
+
+  const checkFFmpegAvailability = async () => {
+    try {
+      // const available = await TauriAPI.checkFFmpegAvailability();
+      setFFmpegAvailable(true);
+    } catch (error) {
+      console.error('Error checking FFmpeg:', error);
+      setFFmpegAvailable(false);
+    }
+  };
+
+  const handleDrag = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      await handleFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  const handleFileInput = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await handleFiles(Array.from(e.target.files));
+    }
+  };
+
+  const handleFileSelect = async () => {
+    try {
+      const selectedPaths = await TauriAPI.openFileDialog();
+      if (selectedPaths && selectedPaths.length > 0) {
+        await handleFilePaths(selectedPaths);
+      }
+    } catch (error) {
+      console.error('Error selecting files:', error);
+    }
+  };
+
+  const handleFiles = async (fileList: File[]) => {
+    setIsLoading(true);
+    
+    // Note: In a web context, File objects don't have paths
+    // For now, we'll create basic file items and show a message
+    // In a real Tauri app, drag-and-drop would provide file paths
+    const newFiles: FileItem[] = fileList.map((file) => ({
+      id: `file-${Date.now()}-${Math.random()}`,
+      name: file.name,
+      path: file.name, // Temporary fallback - in real Tauri app this would be the actual path
+      size: file.size,
+      type: file.type || TauriAPI.detectFileType(file.name),
+      status: 'pending' as const
+    }));
+
+    setFiles(prev => [...prev, ...newFiles]);
+    setIsLoading(false);
+    
+    // Show message to use file browser instead
+    if (newFiles.length > 0) {
+      console.warn('Note: Drag-and-drop files may not have full paths. Use "Browse Files" for full functionality.');
+    }
+  };
+
+  const handleFilePaths = async (filePaths: string[]) => {
+    setIsLoading(true);
+    const newFiles: FileItem[] = [];
+
+    for (const filePath of filePaths) {
+      try {
+        const fileName = filePath.split(/[/\\]/).pop() || filePath;
+        
+        const fileItem: FileItem = {
+          id: `${crypto.randomUUID()}`,
+          name: fileName,
+          path: filePath,
+          size: 0, // We'll get this from metadata
+          type: TauriAPI.detectFileType(fileName),
+          status: 'pending'
+        };
+
+        // Extract metadata
+        try {
+          const metadata = await TauriAPI.extractFileMetadata(filePath);
+          fileItem.metadata = metadata;
+          fileItem.size = metadata.size || 0;
+        } catch (error) {
+          console.warn(`Could not extract metadata for ${fileName}:`, error);
+        }
+
+        newFiles.push(fileItem);
+      } catch (error) {
+        console.error(`Error processing file ${filePath}:`, error);
+      }
+    }
+
+    setFiles(prev => [...prev, ...newFiles]);
+    setIsLoading(false);
+  };
+
+  const removeFile = (id: string) => {
+    setFiles(prev => prev.filter(file => file.id !== id));
+  };
+
+  const showMetadata = (file: FileItem) => {
+    setSelectedFile(file);
+    setShowMetadataModal(true);
+  };
+
+  const clearAllFiles = () => {
+    setFiles([]);
+  };
+
+  const resetFilesForRetry = () => {
+    setFiles(prev => prev.map(file => ({
+      ...file,
+      status: 'pending' as const,
+      progress: undefined,
+      errorMessage: undefined,
+      conversionId: undefined,
+      outputFormat: undefined
+    })));
+  };
+
+  const selectOutputDirectory = async () => {
+    try {
+      const directory = await TauriAPI.openDirectoryDialog();
+      if (directory) {
+        setOutputDirectory(directory);
+      }
+    } catch (error) {
+      console.error('Error selecting output directory:', error);
+    }
+  };
+
+  const startConversion = async () => {
+    if (files.length === 0 || !selectedFormat || !ffmpegAvailable) return;
+    
+    const options: ConversionOptions = {
+      output_format: selectedFormat,
+      quality: selectedQuality,
+      output_dir: outputDirectory || undefined,
+      preserve_metadata: preserveMetadata,
+    };
+
+    // Start conversion for each file (include pending, error, and completed files for retry)
+    for (const file of files) {
+      if (file.status === 'converting') continue; // Skip files currently being converted
+
+      try {
+        const outputPath = TauriAPI.generateOutputPath(file.path, selectedFormat, outputDirectory);
+        const conversionId = await TauriAPI.convertFile(file.path, outputPath, options);
+        
+        // Update file with conversion ID and status
+        setFiles(prev => prev.map(f => 
+          f.id === file.id 
+            ? { 
+                ...f, 
+                status: 'converting',
+                conversionId,
+                outputFormat: selectedFormat,
+                progress: 0,
+                errorMessage: undefined // Clear any previous error
+              }
+            : f
+        ));
+      } catch (error) {
+        console.error(`Error starting conversion for ${file.name}:`, error);
+        setFiles(prev => prev.map(f => 
+          f.id === file.id 
+            ? { 
+                ...f, 
+                status: 'error',
+                errorMessage: `Failed to start conversion: ${error}`
+              }
+            : f
+        ));
+      }
+    }
+  };
+
+  const getFormatRecommendations = () => {
+    if (files.length === 0) return [];
+    
+    const hasVideo = files.some(f => f.type === 'video' || f.type.startsWith('video/'));
+    const hasAudio = files.some(f => f.type === 'audio' || f.type.startsWith('audio/'));
+    const hasImage = files.some(f => f.type === 'image' || f.type.startsWith('image/'));
+    
+    const recommendations = [];
+    if (hasVideo) recommendations.push('mp4', 'webm');
+    if (hasAudio) recommendations.push('mp3', 'wav');
+    if (hasImage) recommendations.push('jpg', 'png', 'webp');
+    
+    return recommendations;
+  };
+
+  const recommendations = getFormatRecommendations();
+
+  // Show FFmpeg warning if not available
+  if (ffmpegAvailable === false) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+          <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">FFmpeg Not Found</h1>
+          <p className="text-gray-600 mb-4">
+            FFmpeg is required for file conversion but was not found on your system.
+          </p>
+          <div className="text-sm text-gray-500 mb-6">
+            <p>Please install FFmpeg and ensure it's in your system PATH:</p>
+            <ul className="mt-2 text-left">
+              <li>• Windows: Download from ffmpeg.org</li>
+              <li>• macOS: brew install ffmpeg</li>
+              <li>• Linux: sudo apt install ffmpeg</li>
+            </ul>
+          </div>
+          <button
+            onClick={checkFFmpegAvailability}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Check Again
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <FileText className="h-8 w-8 text-blue-600 mr-3" />
+              <h1 className="text-xl font-semibold text-gray-900">File Converter</h1>
+              {ffmpegAvailable && (
+                <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  FFmpeg Online
+                </span>
+              )}
+            </div>
+            <button 
+              onClick={() => setShowSettingsPanel(true)}
+              className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </button>
+          </div>
+        </div>
+      </header>
 
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* File Upload Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-medium text-gray-900">Upload Files</h2>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleFileSelect}
+                    className="flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                  >
+                    <Folder className="h-4 w-4 mr-1" />
+                    Browse Files
+                  </button>
+                  {files.length > 0 && (
+                    <button
+                      onClick={clearAllFiles}
+                      className="flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Clear All
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* File Upload Zone */}
+              <FileUploadZone
+                dragActive={dragActive}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onFileSelect={handleFileInput}
+              />
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+              {/* Loading Indicator */}
+              {isLoading && (
+                <div className="mt-4 text-center text-sm text-gray-600">
+                  <div className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                  Processing files...
+                </div>
+              )}
+
+              {/* File List */}
+              {files.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-medium text-gray-900 mb-3">
+                    Selected Files ({files.length})
+                  </h3>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {files.map((file) => (
+                      <FileListItem
+                        key={file.id}
+                        file={file}
+                        onRemove={removeFile}
+                        onShowMetadata={showMetadata}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Conversion Settings Panel */}
+          <div className="space-y-6">
+            {/* Output Directory */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Output Settings</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Output Directory (optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={outputDirectory}
+                      onChange={(e) => setOutputDirectory(e.target.value)}
+                      placeholder="Same as source file..."
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                    <button
+                      onClick={selectOutputDirectory}
+                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Format Selection */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Conversion Settings</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Output Format
+                  </label>
+                  <select
+                    value={selectedFormat}
+                    onChange={(e) => setSelectedFormat(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select format...</option>
+                    <optgroup label="Video">
+                      <option value="mp4">MP4</option>
+                      <option value="avi">AVI</option>
+                      <option value="mov">MOV</option>
+                      <option value="webm">WebM</option>
+                      <option value="mkv">MKV</option>
+                    </optgroup>
+                    <optgroup label="Audio">
+                      <option value="mp3">MP3</option>
+                      <option value="wav">WAV</option>
+                      <option value="aac">AAC</option>
+                      <option value="flac">FLAC</option>
+                      <option value="ogg">OGG</option>
+                    </optgroup>
+                    <optgroup label="Image">
+                      <option value="jpg">JPG</option>
+                      <option value="png">PNG</option>
+                      <option value="webp">WebP</option>
+                      <option value="gif">GIF</option>
+                      <option value="bmp">BMP</option>
+                    </optgroup>
+                  </select>
+                  
+                  {recommendations.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-gray-500 mb-1">Recommended for your files:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {recommendations.map(format => (
+                          <button
+                            key={format}
+                            onClick={() => setSelectedFormat(format)}
+                            className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors"
+                          >
+                            {format.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quality
+                  </label>
+                  <select 
+                    value={selectedQuality}
+                    onChange={(e) => setSelectedQuality(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="high">High Quality (Slower)</option>
+                    <option value="medium">Medium Quality (Balanced)</option>
+                    <option value="low">Low Quality (Faster)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="preserve-metadata"
+                    checked={preserveMetadata}
+                    onChange={(e) => setPreserveMetadata(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="preserve-metadata" className="ml-2 text-sm text-gray-700">
+                    Preserve original metadata
+                  </label>
+                </div>
+
+                <div className="space-y-3">
+                  <button
+                    onClick={startConversion}
+                    disabled={files.length === 0 || !selectedFormat || !ffmpegAvailable}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+                  >
+                    Start Conversion
+                  </button>
+                  
+                  {files.some(f => f.status === 'error' || f.status === 'completed') && (
+                    <button
+                      onClick={resetFilesForRetry}
+                      className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors font-medium text-sm"
+                    >
+                      Reset All for Retry
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Conversion Summary */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Summary</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Files:</span>
+                  <span className="font-medium">{files.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Completed:</span>
+                  <span className="font-medium text-green-600">
+                    {files.filter(f => f.status === 'completed').length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">In Progress:</span>
+                  <span className="font-medium text-blue-600">
+                    {files.filter(f => f.status === 'converting').length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Failed:</span>
+                  <span className="font-medium text-red-600">
+                    {files.filter(f => f.status === 'error').length}
+                  </span>
+                </div>
+              </div>
+              
+              {files.filter(f => f.status === 'completed').length > 0 && (
+                <button className="w-full mt-4 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors font-medium flex items-center justify-center">
+                  <Download className="h-4 w-4 mr-2" />
+                  Open Output Folder
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Metadata Modal */}
+      <MetadataModal
+        file={selectedFile}
+        isOpen={showMetadataModal}
+        onClose={() => setShowMetadataModal(false)}
+      />
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={showSettingsPanel}
+        onClose={() => setShowSettingsPanel(false)}
+      />
+    </div>
   );
 }
 

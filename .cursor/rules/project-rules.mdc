@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+
+- Follow industry best practices.
+- use tailwindCSS for styling.
+- you are allowed to use shadcn components.
+- use headless components where possible.
+- USe modular imports over mass import where possible. e.g import { DragEvent } from 'react' instead of import React from 'react'.
