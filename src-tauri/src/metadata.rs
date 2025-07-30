@@ -1,4 +1,4 @@
-//! File metadata extraction functionality using FFprobe.
+//! File metadata extraction functionality using FFprobe into JSON format.
 
 use crate::path;
 use crate::types::FileMetadata;
@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::process::Command;
 
-/// Extracts metadata from a media file using FFprobe.
+// Extracts metadata from a media file using FFprobe.
 #[tauri::command]
 pub async fn extract_file_metadata(file_path: String) -> Result<FileMetadata, String> {
     println!("🔍 Extracting metadata for: {}", file_path);

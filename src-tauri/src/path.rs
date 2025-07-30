@@ -23,7 +23,7 @@ fn get_binary_path(binary_name: &str) -> PathBuf {
     match get_sidecar_path(binary_name) {
         Ok(sidecar_path) if sidecar_path.exists() => {
             println!(
-                "✅ Using sidecar {} at: {}",
+                "✅ Loaded sidecar {}: {}",
                 binary_name,
                 sidecar_path.display()
             );
@@ -31,7 +31,7 @@ fn get_binary_path(binary_name: &str) -> PathBuf {
         }
         Ok(sidecar_path) => {
             println!(
-                "⚠️  Sidecar {} not found at {}, using system PATH",
+                "⚠️ Sidecar {} not found at {}, using default system PATH",
                 binary_name,
                 sidecar_path.display()
             );
@@ -39,7 +39,7 @@ fn get_binary_path(binary_name: &str) -> PathBuf {
         }
         Err(_) => {
             println!(
-                "⚠️  Could not determine sidecar path for {}, using system PATH",
+                "⚠️ Could not determine sidecar path for {}, using system PATH",
                 binary_name
             );
             system_path
