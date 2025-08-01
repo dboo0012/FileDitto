@@ -1,4 +1,4 @@
-import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Settings, FileText, Trash2, Download, AlertTriangle, Folder } from 'lucide-react';
 import "./App.css";
 import { FileUploadZone } from './components/FileUploadZone';
@@ -7,6 +7,7 @@ import { MetadataModal } from './components/MetadataModal';
 import { SettingsPanel } from './components/SettingsPanel';
 import { TauriAPI } from './utils/tauri';
 import { ConversionOptions, ConversionProgress, ConversionResult } from './types/tauri';
+import { setupDragDropListener } from './events/dragDrop';
 
 function App() {
   const [files, setFiles] = useState<FileItem[]>([]);
@@ -78,32 +79,6 @@ function App() {
     }
   };
 
-  const handleDrag = (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = async (e: DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await handleFiles(Array.from(e.dataTransfer.files));
-    }
-  };
-
-  const handleFileInput = async (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      await handleFiles(Array.from(e.target.files));
-    }
-  };
-
   const handleFileSelect = async () => {
     try {
       const selectedPaths = await TauriAPI.openFileDialog();
@@ -115,31 +90,9 @@ function App() {
     }
   };
 
-  const handleFiles = async (fileList: File[]) => {
-    setIsLoading(true);
-    
-    // Note: In a web context, File objects don't have paths
-    // For now, we'll create basic file items and show a message
-    // In a real Tauri app, drag-and-drop would provide file paths
-    const newFiles: FileItem[] = fileList.map((file) => ({
-      id: `file-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      path: file.name, // Temporary fallback - in real Tauri app this would be the actual path
-      size: file.size,
-      type: file.type || TauriAPI.detectFileType(file.name),
-      status: 'pending' as const
-    }));
 
-    setFiles(prev => [...prev, ...newFiles]);
-    setIsLoading(false);
-    
-    // Show message to use file browser instead
-    if (newFiles.length > 0) {
-      console.warn('Note: Drag-and-drop files may not have full paths. Use "Browse Files" for full functionality.');
-    }
-  };
 
-  const handleFilePaths = async (filePaths: string[]) => {
+  const handleFilePaths = useCallback(async (filePaths: string[]) => {
     setIsLoading(true);
     const newFiles: FileItem[] = [];
 
@@ -173,7 +126,28 @@ function App() {
 
     setFiles(prev => [...prev, ...newFiles]);
     setIsLoading(false);
-  };
+    console.log('Laoded files', newFiles);
+  }, [setIsLoading, setFiles]);
+
+  // Set up Tauri drag and drop event listener
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+
+    const initializeDragDrop = async () => {
+      unlisten = await setupDragDropListener({
+        setDragActive,
+        handleFilePaths,
+      });
+    };
+
+    initializeDragDrop();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [setDragActive, handleFilePaths]);
 
   const removeFile = (id: string) => {
     setFiles(prev => prev.filter(file => file.id !== id));
@@ -339,7 +313,6 @@ function App() {
                 <h2 className="text-lg font-medium text-gray-900">Upload Files</h2>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={handleFileSelect}
                     className="flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                   >
                     <Folder className="h-4 w-4 mr-1" />
@@ -360,11 +333,7 @@ function App() {
               {/* File Upload Zone */}
               <FileUploadZone
                 dragActive={dragActive}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onFileSelect={handleFileInput}
+                onBrowseClick={handleFileSelect}
               />
 
               {/* Loading Indicator */}

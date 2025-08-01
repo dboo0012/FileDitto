@@ -44,7 +44,17 @@ pub async fn extract_file_metadata(file_path: String) -> Result<FileMetadata, St
 
 /// Gets the duration of a media file in seconds.
 pub fn get_file_duration(file_path: &str) -> Result<f64> {
+    println!("⏱️ Getting duration for file: {}", file_path);
+
+    if !Path::new(file_path).exists() {
+        let error_msg = format!("File does not exist: {}", file_path);
+        println!("❌ {}", error_msg);
+        return Err(anyhow!(error_msg));
+    }
+
     let ffprobe_path = path::ffprobe_path();
+    println!("🔧 Using FFprobe path: {}", ffprobe_path.display());
+
     let output = Command::new(&ffprobe_path)
         .args(&[
             "-v",
@@ -55,13 +65,38 @@ pub fn get_file_duration(file_path: &str) -> Result<f64> {
             "csv=p=0",
             file_path,
         ])
-        .output()?;
+        .output()
+        .map_err(|e| {
+            let error_msg = format!("Failed to execute ffprobe: {}", e);
+            println!("❌ {}", error_msg);
+            anyhow!(error_msg)
+        })?;
 
-    let duration_str = String::from_utf8(output.stdout)?;
-    duration_str
-        .trim()
-        .parse::<f64>()
-        .map_err(|e| anyhow!("Failed to parse duration: {}", e))
+    println!("🎯 FFprobe exit code: {:?}", output.status.code());
+
+    if !output.status.success() {
+        let stderr_output = String::from_utf8_lossy(&output.stderr);
+        let error_msg = format!("FFprobe failed: {}", stderr_output);
+        println!("❌ {}", error_msg);
+        return Err(anyhow!(error_msg));
+    }
+
+    let duration_str = String::from_utf8(output.stdout).map_err(|e| {
+        let error_msg = format!("Failed to parse ffprobe stdout as UTF-8: {}", e);
+        println!("❌ {}", error_msg);
+        anyhow!(error_msg)
+    })?;
+
+    println!("📊 Raw duration output: '{}'", duration_str.trim());
+
+    let duration = duration_str.trim().parse::<f64>().map_err(|e| {
+        let error_msg = format!("Failed to parse duration '{}': {}", duration_str.trim(), e);
+        println!("❌ {}", error_msg);
+        anyhow!(error_msg)
+    })?;
+
+    println!("✅ Parsed duration: {:.2} seconds", duration);
+    Ok(duration)
 }
 
 /// Parses metadata from FFprobe JSON output.

@@ -33,6 +33,10 @@ pub async fn convert_file(
         &conversion_id[..8]
     );
 
+    println!("🔗 Full input path: {}", file_path);
+    println!("🔗 Full output path: {}", output_path);
+    println!("⚙️ Conversion options: {:?}", options);
+
     // Initialize conversion state
     let state: ConversionState = app_handle.state::<ConversionState>().inner().clone();
     {
@@ -118,21 +122,42 @@ async fn perform_conversion(
     state: ConversionState,
     app_handle: AppHandle,
 ) -> Result<String> {
+    println!(
+        "🔍 Starting conversion process for ID: {}",
+        &conversion_id[..8]
+    );
+    println!("📁 Input file: {}", input_path);
+    println!("📁 Output file: {}", output_path);
+    println!("⚙️ Options: {:?}", options);
+
+    // Validate input file exists
+    if !Path::new(input_path).exists() {
+        let error_msg = format!("Input file does not exist: {}", input_path);
+        println!("❌ {}", error_msg);
+        return Err(anyhow!(error_msg));
+    }
+
     // Get file duration for progress calculation
     let total_duration = get_file_duration(input_path).unwrap_or(0.0);
+    println!("⏱️ File duration: {:.2}s", total_duration);
 
     let ffmpeg_path = path::ffmpeg_path();
+    println!("🔧 Using FFmpeg path: {}", ffmpeg_path.display());
 
     // Build FFmpeg command based on output format
     let mut cmd = Command::new(&ffmpeg_path);
     cmd.args(&["-y", "-i", input_path]);
 
     // Add format-specific arguments
+    println!("🎬 Applying format settings for: {}", options.output_format);
     apply_format_settings(&mut cmd, options)?;
 
     // Add metadata preservation option
     if !options.preserve_metadata {
         cmd.args(&["-map_metadata", "-1"]);
+        println!("🔄 Metadata preservation: disabled");
+    } else {
+        println!("🔄 Metadata preservation: enabled");
     }
 
     // Add progress reporting
@@ -141,10 +166,16 @@ async fn perform_conversion(
 
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
+    // Log the complete command being executed
+    let command_str = format!("{:?}", cmd);
+    println!("🚀 Executing FFmpeg command: {}", command_str);
+
     // Start FFmpeg process
     let mut child = cmd.spawn().map_err(|e| {
-        println!("❌ Failed to start FFmpeg: {}", e);
-        anyhow!("Failed to start FFmpeg: {}", e)
+        let error_msg = format!("Failed to start FFmpeg process: {}", e);
+        println!("❌ {}", error_msg);
+        println!("💡 Check if FFmpeg is properly installed and accessible");
+        anyhow!(error_msg)
     })?;
 
     // Monitor progress
@@ -160,13 +191,49 @@ async fn perform_conversion(
     }
 
     // Wait for completion
-    let output = child
-        .wait_with_output()
-        .map_err(|e| anyhow!("FFmpeg process failed: {}", e))?;
+    println!("⏳ Waiting for FFmpeg process to complete...");
+    let output = child.wait_with_output().map_err(|e| {
+        let error_msg = format!("FFmpeg process failed to complete: {}", e);
+        println!("❌ {}", error_msg);
+        anyhow!(error_msg)
+    })?;
+
+    println!(
+        "🎯 FFmpeg process completed with exit code: {:?}",
+        output.status.code()
+    );
 
     if !output.status.success() {
-        let error = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("FFmpeg conversion failed: {}", error));
+        let stderr_output = String::from_utf8_lossy(&output.stderr);
+        let stdout_output = String::from_utf8_lossy(&output.stdout);
+
+        println!("❌ FFmpeg conversion failed!");
+        println!("📊 Exit code: {:?}", output.status.code());
+        println!("📄 STDERR output:\n{}", stderr_output);
+        println!("📄 STDOUT output:\n{}", stdout_output);
+
+        // Try to provide more specific error context
+        let error_context = if stderr_output.contains("No such file or directory") {
+            "Input file not found or inaccessible"
+        } else if stderr_output.contains("Permission denied") {
+            "Permission denied - check file/directory permissions"
+        } else if stderr_output.contains("Invalid argument") {
+            "Invalid FFmpeg arguments or unsupported codec"
+        } else if stderr_output.contains("Conversion failed") {
+            "FFmpeg codec conversion failed"
+        } else if stderr_output.contains("Unknown encoder") {
+            "Unsupported encoder for this format"
+        } else {
+            "General FFmpeg error"
+        };
+
+        println!("💡 Error context: {}", error_context);
+
+        return Err(anyhow!(
+            "FFmpeg conversion failed: {} - {}",
+            error_context,
+            stderr_output.trim()
+        ));
     }
 
     println!(
@@ -185,38 +252,81 @@ async fn perform_conversion(
 
 /// Applies format-specific FFmpeg settings based on the conversion options.
 fn apply_format_settings(cmd: &mut Command, options: &ConversionOptions) -> Result<()> {
+    println!(
+        "🎨 Configuring format settings for: {}",
+        options.output_format
+    );
+
     match options.output_format.as_str() {
         "mp4" => {
             cmd.args(&["-c:v", "libx264"]);
-            match options.quality.as_str() {
-                "high" => cmd.args(&["-preset", "slow", "-crf", "18"]),
-                "medium" => cmd.args(&["-preset", "medium", "-crf", "23"]),
-                "low" => cmd.args(&["-preset", "fast", "-crf", "28"]),
-                _ => cmd.args(&["-preset", "medium", "-crf", "23"]),
+            let (preset, crf) = match options.quality.as_str() {
+                "high" => {
+                    println!("📈 MP4 Quality: High (preset=slow, crf=18)");
+                    ("slow", "18")
+                }
+                "medium" => {
+                    println!("📊 MP4 Quality: Medium (preset=medium, crf=23)");
+                    ("medium", "23")
+                }
+                "low" => {
+                    println!("📉 MP4 Quality: Low (preset=fast, crf=28)");
+                    ("fast", "28")
+                }
+                _ => {
+                    println!(
+                        "⚠️ Unknown quality '{}', defaulting to medium",
+                        options.quality
+                    );
+                    ("medium", "23")
+                }
             };
+            cmd.args(&["-preset", preset, "-crf", crf]);
         }
         "webm" => {
             cmd.args(&["-c:v", "libvpx-vp9"]);
-            match options.quality.as_str() {
-                "high" => cmd.args(&["-b:v", "2M"]),
-                "medium" => cmd.args(&["-b:v", "1M"]),
-                "low" => cmd.args(&["-b:v", "500k"]),
-                _ => cmd.args(&["-b:v", "1M"]),
+            let bitrate = match options.quality.as_str() {
+                "high" => {
+                    println!("📈 WebM Quality: High (bitrate=2M)");
+                    "2M"
+                }
+                "medium" => {
+                    println!("📊 WebM Quality: Medium (bitrate=1M)");
+                    "1M"
+                }
+                "low" => {
+                    println!("📉 WebM Quality: Low (bitrate=500k)");
+                    "500k"
+                }
+                _ => {
+                    println!(
+                        "⚠️ Unknown quality '{}', defaulting to medium",
+                        options.quality
+                    );
+                    "1M"
+                }
             };
+            cmd.args(&["-b:v", bitrate]);
         }
         "avi" => {
+            println!("🎬 AVI: Using libx264 video codec and AAC audio codec");
             cmd.args(&["-c:v", "libx264", "-c:a", "aac"]);
         }
         "mov" => {
+            println!("🎬 MOV: Using libx264 video codec and AAC audio codec");
             cmd.args(&["-c:v", "libx264", "-c:a", "aac"]);
         }
         _ => {
-            return Err(anyhow!(
-                "Unsupported output format: {}",
+            let error_msg = format!(
+                "Unsupported output format: '{}'. Supported formats: mp4, webm, avi, mov",
                 options.output_format
-            ));
+            );
+            println!("❌ {}", error_msg);
+            return Err(anyhow!(error_msg));
         }
     }
+
+    println!("✅ Format settings applied successfully");
     Ok(())
 }
 
@@ -263,23 +373,52 @@ async fn monitor_conversion_progress(
 
         let reader = BufReader::new(stderr);
         let regex = regex::Regex::new(r"out_time_ms=(\d+)").unwrap();
-        let _start_time = Instant::now();
+        let start_time = Instant::now();
+        let mut progress_lines_count = 0;
+
+        println!("📊 Starting progress monitoring...");
 
         for line in reader.lines() {
             if let Ok(line) = line {
+                // Log first few lines for debugging
+                if progress_lines_count < 10 {
+                    println!("📊 FFmpeg output line: {}", line.trim());
+                }
+                progress_lines_count += 1;
+
                 if let Some(captures) = regex.captures(&line) {
                     if let Some(time_match) = captures.get(1) {
                         if let Ok(time_microseconds) = time_match.as_str().parse::<u64>() {
                             let current_time = time_microseconds as f64 / 1_000_000.0;
                             if total_duration > 0.0 {
                                 let progress = (current_time / total_duration * 100.0).min(99.0);
+
+                                // Log progress updates every 10%
+                                if (progress as i32) % 10 == 0 && progress > 0.0 {
+                                    println!(
+                                        "📈 Progress: {:.1}% ({:.1}s / {:.1}s)",
+                                        progress, current_time, total_duration
+                                    );
+                                }
+
                                 update_progress(progress, Some(format!("{:.1}s", current_time)));
+                            } else {
+                                println!("⚠️ Cannot calculate progress: total_duration is 0");
                             }
                         }
                     }
                 }
+            } else if let Err(e) = line {
+                println!("⚠️ Error reading FFmpeg output line: {}", e);
             }
         }
+
+        let elapsed = start_time.elapsed();
+        println!(
+            "📊 Progress monitoring completed. Total lines processed: {}, Duration: {:.2}s",
+            progress_lines_count,
+            elapsed.as_secs_f64()
+        );
     });
 }
 
