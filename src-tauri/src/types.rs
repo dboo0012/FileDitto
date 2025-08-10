@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+// Re-export settings types for easier access
+pub use crate::settings::{OutputPathMode, OutputPathSettings, UserSettings};
+
 /// Metadata information extracted from media files.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileMetadata {

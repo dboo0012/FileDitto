@@ -1,15 +1,21 @@
-import { invoke } from '@tauri-apps/api/core';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { open } from '@tauri-apps/plugin-dialog';
-import { FileMetadata, ConversionOptions, ConversionProgress, ConversionResult } from '../types/tauri';
+import { invoke } from "@tauri-apps/api/core";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  FileMetadata,
+  ConversionOptions,
+  ConversionProgress,
+  ConversionResult,
+  UserSettings,
+} from "../types/tauri";
 
 export class TauriAPI {
   // Check if FFmpeg is available
   static async checkFFmpegAvailability(): Promise<boolean> {
     try {
-      return await invoke<boolean>('check_ffmpeg_availability');
+      return await invoke<boolean>("check_ffmpeg_availability");
     } catch (error) {
-      console.error('Error checking FFmpeg availability:', error);
+      console.error("Error checking FFmpeg availability:", error);
       return false;
     }
   }
@@ -17,9 +23,9 @@ export class TauriAPI {
   // Extract metadata from a file
   static async extractFileMetadata(filePath: string): Promise<FileMetadata> {
     try {
-      return await invoke<FileMetadata>('extract_file_metadata', { filePath });
+      return await invoke<FileMetadata>("extract_file_metadata", { filePath });
     } catch (error) {
-      console.error('Error extracting metadata:', error);
+      console.error("Error extracting metadata:", error);
       throw new Error(`Failed to extract metadata: ${error}`);
     }
   }
@@ -31,25 +37,30 @@ export class TauriAPI {
     options: ConversionOptions
   ): Promise<string> {
     try {
-      return await invoke<string>('convert_file', {
+      return await invoke<string>("convert_file", {
         filePath,
         outputPath,
         options,
       });
     } catch (error) {
-      console.error('Error starting conversion:', error);
+      console.error("Error starting conversion:", error);
       throw new Error(`Failed to start conversion: ${error}`);
     }
   }
 
   // Get conversion progress
-  static async getConversionProgress(conversionId: string): Promise<ConversionProgress | null> {
+  static async getConversionProgress(
+    conversionId: string
+  ): Promise<ConversionProgress | null> {
     try {
-      return await invoke<ConversionProgress | null>('get_conversion_progress', {
-        conversionId,
-      });
+      return await invoke<ConversionProgress | null>(
+        "get_conversion_progress",
+        {
+          conversionId,
+        }
+      );
     } catch (error) {
-      console.error('Error getting conversion progress:', error);
+      console.error("Error getting conversion progress:", error);
       return null;
     }
   }
@@ -57,9 +68,9 @@ export class TauriAPI {
   // Cancel conversion
   static async cancelConversion(conversionId: string): Promise<boolean> {
     try {
-      return await invoke<boolean>('cancel_conversion', { conversionId });
+      return await invoke<boolean>("cancel_conversion", { conversionId });
     } catch (error) {
-      console.error('Error cancelling conversion:', error);
+      console.error("Error cancelling conversion:", error);
       return false;
     }
   }
@@ -68,7 +79,7 @@ export class TauriAPI {
   static async listenToConversionProgress(
     callback: (progress: ConversionProgress) => void
   ): Promise<UnlistenFn> {
-    return await listen<ConversionProgress>('conversion_progress', (event) => {
+    return await listen<ConversionProgress>("conversion_progress", (event) => {
       callback(event.payload);
     });
   }
@@ -77,7 +88,7 @@ export class TauriAPI {
   static async listenToConversionComplete(
     callback: (result: ConversionResult) => void
   ): Promise<UnlistenFn> {
-    return await listen<ConversionResult>('conversion_complete', (event) => {
+    return await listen<ConversionResult>("conversion_complete", (event) => {
       callback(event.payload);
     });
   }
@@ -89,31 +100,48 @@ export class TauriAPI {
         multiple: true,
         filters: [
           {
-            name: 'Media Files',
+            name: "Media Files",
             extensions: [
-              'mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv',
-              'mp3', 'wav', 'aac', 'flac', 'ogg', 'wma',
-              'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp'
+              "mp4",
+              "avi",
+              "mov",
+              "mkv",
+              "webm",
+              "flv",
+              "wmv",
+              "mp3",
+              "wav",
+              "aac",
+              "flac",
+              "ogg",
+              "wma",
+              "jpg",
+              "jpeg",
+              "png",
+              "gif",
+              "bmp",
+              "tiff",
+              "webp",
             ],
           },
           {
-            name: 'Video Files',
-            extensions: ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv'],
+            name: "Video Files",
+            extensions: ["mp4", "avi", "mov", "mkv", "webm", "flv", "wmv"],
           },
           {
-            name: 'Audio Files',
-            extensions: ['mp3', 'wav', 'aac', 'flac', 'ogg', 'wma'],
+            name: "Audio Files",
+            extensions: ["mp3", "wav", "aac", "flac", "ogg", "wma"],
           },
           {
-            name: 'Image Files',
-            extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp'],
+            name: "Image Files",
+            extensions: ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp"],
           },
         ],
       });
-      
+
       return Array.isArray(selected) ? selected : selected ? [selected] : null;
     } catch (error) {
-      console.error('Error opening file dialog:', error);
+      console.error("Error opening file dialog:", error);
       return null;
     }
   }
@@ -124,51 +152,127 @@ export class TauriAPI {
       const selected = await open({
         directory: true,
       });
-      
-      return typeof selected === 'string' ? selected : null;
+
+      return typeof selected === "string" ? selected : null;
     } catch (error) {
-      console.error('Error opening directory dialog:', error);
+      console.error("Error opening directory dialog:", error);
       return null;
     }
   }
 
   // Generate output file path
-  static generateOutputPath(inputPath: string, outputFormat: string, outputDir?: string): string {
-    const pathParts = inputPath.replace(/\\/g, '/').split('/');
+  static generateOutputPath(
+    inputPath: string,
+    outputFormat: string,
+    outputDir?: string
+  ): string {
+    const pathParts = inputPath.replace(/\\/g, "/").split("/");
     const fileName = pathParts[pathParts.length - 1];
-    const baseName = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+    const baseName =
+      fileName.substring(0, fileName.lastIndexOf(".")) || fileName;
     const newFileName = `${baseName}_converted.${outputFormat}`;
-    
+
     if (outputDir) {
       return `${outputDir}/${newFileName}`;
     } else {
       // Use same directory as input file
       pathParts[pathParts.length - 1] = newFileName;
-      return pathParts.join('/');
+      return pathParts.join("/");
     }
   }
 
   // Format file size
   static formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   }
 
   // Detect file type from path
-  static detectFileType(filePath: string): 'video' | 'audio' | 'image' | 'unknown' {
-    const extension = filePath.split('.').pop()?.toLowerCase();
-    
-    const videoExtensions = ['mp4', 'avi', 'mov', 'mkv', 'webm', 'flv', 'wmv'];
-    const audioExtensions = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'wma'];
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp'];
-    
-    if (extension && videoExtensions.includes(extension)) return 'video';
-    if (extension && audioExtensions.includes(extension)) return 'audio';
-    if (extension && imageExtensions.includes(extension)) return 'image';
-    
-    return 'unknown';
+  static detectFileType(
+    filePath: string
+  ): "video" | "audio" | "image" | "unknown" {
+    const extension = filePath.split(".").pop()?.toLowerCase();
+
+    const videoExtensions = ["mp4", "avi", "mov", "mkv", "webm", "flv", "wmv"];
+    const audioExtensions = ["mp3", "wav", "aac", "flac", "ogg", "wma"];
+    const imageExtensions = [
+      "jpg",
+      "jpeg",
+      "png",
+      "gif",
+      "bmp",
+      "tiff",
+      "webp",
+    ];
+
+    if (extension && videoExtensions.includes(extension)) return "video";
+    if (extension && audioExtensions.includes(extension)) return "audio";
+    if (extension && imageExtensions.includes(extension)) return "image";
+
+    return "unknown";
   }
-} 
+
+  // Settings Management
+
+  // Load user settings
+  static async loadUserSettings(): Promise<UserSettings> {
+    try {
+      return await invoke<UserSettings>("load_user_settings");
+    } catch (error) {
+      console.error("Error loading user settings:", error);
+      throw new Error(`Failed to load settings: ${error}`);
+    }
+  }
+
+  // Save user settings
+  static async saveUserSettings(settings: UserSettings): Promise<void> {
+    try {
+      await invoke<void>("save_user_settings", { settings });
+    } catch (error) {
+      console.error("Error saving user settings:", error);
+      throw new Error(`Failed to save settings: ${error}`);
+    }
+  }
+
+  // Reset settings to defaults
+  static async resetUserSettings(): Promise<UserSettings> {
+    try {
+      return await invoke<UserSettings>("reset_user_settings");
+    } catch (error) {
+      console.error("Error resetting user settings:", error);
+      throw new Error(`Failed to reset settings: ${error}`);
+    }
+  }
+
+  // Enhanced output path generation that uses settings
+  static generateOutputPathWithSettings(
+    inputPath: string,
+    outputFormat: string,
+    settings: UserSettings
+  ): string {
+    const pathParts = inputPath.replace(/\\/g, "/").split("/");
+    const fileName = pathParts[pathParts.length - 1];
+    const baseName =
+      fileName.substring(0, fileName.lastIndexOf(".")) || fileName;
+    const newFileName = `${baseName}_converted.${outputFormat}`;
+
+    switch (settings.output_path.mode) {
+      case "custom_directory":
+        if (settings.output_path.custom_directory) {
+          return `${settings.output_path.custom_directory}/${newFileName}`;
+        }
+        // Fallback to same as input if custom directory not set
+        pathParts[pathParts.length - 1] = newFileName;
+        return pathParts.join("/");
+
+      case "same_as_input":
+      default:
+        // Use same directory as input file
+        pathParts[pathParts.length - 1] = newFileName;
+        return pathParts.join("/");
+    }
+  }
+}

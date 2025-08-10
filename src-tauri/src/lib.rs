@@ -15,6 +15,7 @@ mod conversion;
 mod ffmpeg;
 mod metadata;
 mod path;
+mod settings;
 mod types;
 
 // Re-export types for easier access
@@ -35,7 +36,10 @@ pub fn run() {
             conversion::convert_file,
             conversion::get_conversion_progress,
             conversion::cancel_conversion,
-            ffmpeg::check_ffmpeg_availability
+            ffmpeg::check_ffmpeg_availability,
+            settings::load_user_settings,
+            settings::save_user_settings,
+            settings::reset_user_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

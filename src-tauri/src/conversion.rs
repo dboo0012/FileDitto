@@ -10,7 +10,7 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
-/// Initiates a file conversion operation.
+// Main conversion process
 #[tauri::command]
 pub async fn convert_file(
     file_path: String,
@@ -18,6 +18,7 @@ pub async fn convert_file(
     options: ConversionOptions,
     app_handle: AppHandle,
 ) -> Result<String, String> {
+    // Generate a unique conversion ID
     let conversion_id = Uuid::new_v4().to_string();
 
     println!(
@@ -32,10 +33,6 @@ pub async fn convert_file(
             .to_string_lossy(),
         &conversion_id[..8]
     );
-
-    println!("🔗 Full input path: {}", file_path);
-    println!("🔗 Full output path: {}", output_path);
-    println!("⚙️ Conversion options: {:?}", options);
 
     // Initialize conversion state
     let state: ConversionState = app_handle.state::<ConversionState>().inner().clone();
@@ -113,7 +110,7 @@ pub async fn cancel_conversion(
     }
 }
 
-/// Performs the actual file conversion using FFmpeg.
+// Performs the actual file conversion using FFmpeg.
 async fn perform_conversion(
     input_path: &str,
     output_path: &str,
@@ -170,6 +167,12 @@ async fn perform_conversion(
     let command_str = format!("{:?}", cmd);
     println!("🚀 Executing FFmpeg command: {}", command_str);
 
+    // Also log the actual CLI command for debugging
+    // let mut cli_command = vec![ffmpeg_path.to_string_lossy().to_string()];
+    // cli_command.extend(cmd.get_args().map(|arg| arg.to_string_lossy().to_string()));
+    // let cli_string = cli_command.join(" ");
+    // println!("🔧 Actual CLI command: {}", cli_string);
+
     // Start FFmpeg process
     let mut child = cmd.spawn().map_err(|e| {
         let error_msg = format!("Failed to start FFmpeg process: {}", e);
@@ -178,25 +181,40 @@ async fn perform_conversion(
         anyhow!(error_msg)
     })?;
 
-    // Monitor progress
-    if let Some(stderr) = child.stderr.take() {
-        monitor_conversion_progress(
-            stderr,
-            state.clone(),
-            conversion_id,
-            app_handle.clone(),
-            total_duration,
+    // Monitor progress and get handle to wait for completion
+    let progress_handle = if let Some(stderr) = child.stderr.take() {
+        Some(
+            monitor_conversion_progress(
+                stderr,
+                state.clone(),
+                conversion_id,
+                app_handle.clone(),
+                total_duration,
+            )
+            .await,
         )
-        .await;
-    }
+    } else {
+        println!("⚠️ No stderr available for progress monitoring");
+        None
+    };
 
-    // Wait for completion
+    // Wait for FFmpeg process to complete
     println!("⏳ Waiting for FFmpeg process to complete...");
     let output = child.wait_with_output().map_err(|e| {
         let error_msg = format!("FFmpeg process failed to complete: {}", e);
         println!("❌ {}", error_msg);
         anyhow!(error_msg)
     })?;
+
+    // Wait for progress monitoring to complete
+    if let Some(handle) = progress_handle {
+        println!("⏳ Waiting for progress monitoring to finish...");
+        if let Err(e) = handle.await {
+            println!("⚠️ Progress monitoring task failed: {}", e);
+        } else {
+            println!("✅ Progress monitoring completed successfully");
+        }
+    }
 
     println!(
         "🎯 FFmpeg process completed with exit code: {:?}",
@@ -236,16 +254,48 @@ async fn perform_conversion(
         ));
     }
 
+    // Verify output file was created successfully
+    let output_file = Path::new(output_path);
+    if !output_file.exists() {
+        let error_msg = format!("Output file was not created: {}", output_path);
+        println!("❌ {}", error_msg);
+        return Err(anyhow!(error_msg));
+    }
+
+    let file_size = output_file.metadata().map(|m| m.len()).unwrap_or(0);
+
+    if file_size == 0 {
+        let error_msg = format!("Output file is empty: {}", output_path);
+        println!("❌ {}", error_msg);
+        return Err(anyhow!(error_msg));
+    }
+
     println!(
-        "✅ Conversion completed: {}",
-        Path::new(output_path)
+        "✅ Conversion completed successfully: {} ({} bytes)",
+        output_file
             .file_name()
             .unwrap_or_default()
-            .to_string_lossy()
+            .to_string_lossy(),
+        file_size
     );
+    println!("📁 Output file location: {}", output_path);
 
-    // Final completion update
-    update_final_progress(state, conversion_id, app_handle).await;
+    // Ensure final completion state is set (in case progress monitoring didn't catch completion signal)
+    println!("🏁 Setting final completion state...");
+    {
+        let mut conversions = state.lock().unwrap();
+        if let Some(conv) = conversions.get_mut(conversion_id) {
+            conv.progress = 100.0;
+            conv.status = "Completed".to_string();
+            conv.eta = None;
+            conv.speed = None;
+            println!(
+                "✅ Final completion: Progress = {:.1}%, Status = {}",
+                conv.progress, conv.status
+            );
+            let _ = app_handle.emit("conversion_progress", conv.clone());
+        }
+    }
 
     Ok(output_path.to_string())
 }
@@ -331,52 +381,35 @@ fn apply_format_settings(cmd: &mut Command, options: &ConversionOptions) -> Resu
 }
 
 /// Monitors FFmpeg progress output and updates conversion state.
+/// Returns a JoinHandle that can be awaited to ensure monitoring completes.
 async fn monitor_conversion_progress(
     stderr: std::process::ChildStderr,
     state: ConversionState,
     conversion_id: &str,
     app_handle: AppHandle,
     total_duration: f64,
-) {
+) -> tokio::task::JoinHandle<()> {
     let state_clone = state.clone();
     let conversion_id = conversion_id.to_string();
     let app_handle_clone = app_handle.clone();
 
-    let update_progress = move |progress: f64, time_str: Option<String>| {
-        let mut conversions = state_clone.lock().unwrap();
-        if let Some(conv) = conversions.get_mut(&conversion_id) {
-            conv.progress = progress as f32;
-            conv.status = if progress >= 100.0 {
-                "Completed"
-            } else {
-                "Converting"
-            }
-            .to_string();
-
-            if let Some(_time) = time_str {
-                if total_duration > 0.0 {
-                    let remaining = total_duration * (100.0 - progress) / 100.0;
-                    conv.eta = Some(format!("{:.0}s", remaining));
-                    conv.speed = Some(format!(
-                        "{}x",
-                        progress / 100.0 * total_duration / remaining.max(1.0)
-                    ));
-                }
-            }
-
-            let _ = app_handle_clone.emit("conversion_progress", conv.clone());
-        }
-    };
-
     tokio::spawn(async move {
         use std::io::{BufRead, BufReader};
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
 
         let reader = BufReader::new(stderr);
-        let regex = regex::Regex::new(r"out_time_ms=(\d+)").unwrap();
+        let time_regex = regex::Regex::new(r"out_time_ms=(\d+)").unwrap();
+        let end_regex = regex::Regex::new(r"progress=end").unwrap();
         let start_time = Instant::now();
         let mut progress_lines_count = 0;
+        let mut last_progress = 0.0;
+        let conversion_completed = Arc::new(AtomicBool::new(false));
 
-        println!("📊 Starting progress monitoring...");
+        println!(
+            "📊 Starting progress monitoring for conversion {}",
+            &conversion_id[..8]
+        );
 
         for line in reader.lines() {
             if let Ok(line) = line {
@@ -386,53 +419,100 @@ async fn monitor_conversion_progress(
                 }
                 progress_lines_count += 1;
 
-                if let Some(captures) = regex.captures(&line) {
-                    if let Some(time_match) = captures.get(1) {
-                        if let Ok(time_microseconds) = time_match.as_str().parse::<u64>() {
-                            let current_time = time_microseconds as f64 / 1_000_000.0;
-                            if total_duration > 0.0 {
-                                let progress = (current_time / total_duration * 100.0).min(99.0);
+                // Check for FFmpeg completion signal
+                if end_regex.is_match(&line) {
+                    println!(
+                        "✅ FFmpeg reported completion (progress=end) for {}",
+                        &conversion_id[..8]
+                    );
+                    conversion_completed.store(true, Ordering::Relaxed);
 
-                                // Log progress updates every 10%
-                                if (progress as i32) % 10 == 0 && progress > 0.0 {
-                                    println!(
-                                        "📈 Progress: {:.1}% ({:.1}s / {:.1}s)",
-                                        progress, current_time, total_duration
-                                    );
+                    // Set final completion state
+                    {
+                        let mut conversions = state_clone.lock().unwrap();
+                        if let Some(conv) = conversions.get_mut(&conversion_id) {
+                            conv.progress = 100.0;
+                            conv.status = "Completed".to_string();
+                            conv.eta = None;
+                            conv.speed = None;
+                            println!("🎯 Progress monitoring: Set final completion to 100%");
+                            let _ = app_handle_clone.emit("conversion_progress", conv.clone());
+                        }
+                    }
+                    break;
+                }
+
+                // Parse time-based progress (only if not completed)
+                if !conversion_completed.load(Ordering::Relaxed) {
+                    if let Some(captures) = time_regex.captures(&line) {
+                        if let Some(time_match) = captures.get(1) {
+                            if let Ok(time_microseconds) = time_match.as_str().parse::<u64>() {
+                                let current_time = time_microseconds as f64 / 1_000_000.0;
+                                if total_duration > 0.0 {
+                                    // Allow progress to reach 99.5% but not 100% (reserved for completion signal)
+                                    let progress =
+                                        (current_time / total_duration * 100.0).min(99.5);
+
+                                    // Only update if progress increased significantly (reduce spam)
+                                    if progress > last_progress + 1.0 {
+                                        last_progress = progress;
+
+                                        // Calculate ETA and speed
+                                        let elapsed_seconds = start_time.elapsed().as_secs_f64();
+                                        let remaining_time = if progress > 0.0 {
+                                            (total_duration - current_time).max(0.0)
+                                        } else {
+                                            total_duration
+                                        };
+                                        let speed = if elapsed_seconds > 0.0 {
+                                            current_time / elapsed_seconds
+                                        } else {
+                                            1.0
+                                        };
+
+                                        // Log progress updates every 5%
+                                        if (progress as i32) % 5 == 0 && progress > 0.0 {
+                                            println!(
+                                                "📈 Progress: {:.1}% ({:.1}s / {:.1}s) - Speed: {:.2}x - ETA: {:.0}s",
+                                                progress, current_time, total_duration, speed, remaining_time
+                                            );
+                                        }
+
+                                        // Update conversion state
+                                        {
+                                            let mut conversions = state_clone.lock().unwrap();
+                                            if let Some(conv) = conversions.get_mut(&conversion_id)
+                                            {
+                                                conv.progress = progress as f32;
+                                                conv.status = "Converting".to_string();
+                                                conv.eta = Some(format!("{:.0}s", remaining_time));
+                                                conv.speed = Some(format!("{:.2}x", speed));
+                                                let _ = app_handle_clone
+                                                    .emit("conversion_progress", conv.clone());
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    println!("⚠️ Cannot calculate progress: total_duration is 0");
                                 }
-
-                                update_progress(progress, Some(format!("{:.1}s", current_time)));
-                            } else {
-                                println!("⚠️ Cannot calculate progress: total_duration is 0");
                             }
                         }
                     }
                 }
             } else if let Err(e) = line {
                 println!("⚠️ Error reading FFmpeg output line: {}", e);
+                break;
             }
         }
 
         let elapsed = start_time.elapsed();
         println!(
-            "📊 Progress monitoring completed. Total lines processed: {}, Duration: {:.2}s",
+            "📊 Progress monitoring completed for {}. Lines: {}, Duration: {:.2}s, Final progress: {:.1}%, Completed: {}",
+            &conversion_id[..8],
             progress_lines_count,
-            elapsed.as_secs_f64()
+            elapsed.as_secs_f64(),
+            last_progress,
+            conversion_completed.load(Ordering::Relaxed)
         );
-    });
-}
-
-/// Updates the conversion state to indicate final completion.
-async fn update_final_progress(state: ConversionState, conversion_id: &str, app_handle: AppHandle) {
-    let mut conversions = state.lock().unwrap();
-    if let Some(conv) = conversions.get_mut(conversion_id) {
-        conv.progress = 100.0;
-        conv.status = "Completed".to_string();
-        conv.eta = None;
-        conv.speed = None;
-    }
-    let _ = app_handle.emit(
-        "conversion_progress",
-        conversions.get(conversion_id).unwrap().clone(),
-    );
+    })
 }

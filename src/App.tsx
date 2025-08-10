@@ -6,7 +6,7 @@ import { FileListItem, FileItem } from './components/FileListItem';
 import { MetadataModal } from './components/MetadataModal';
 import { SettingsPanel } from './components/SettingsPanel';
 import { TauriAPI } from './utils/tauri';
-import { ConversionOptions, ConversionProgress, ConversionResult } from './types/tauri';
+import { ConversionOptions, ConversionProgress, ConversionResult, UserSettings } from './types/tauri';
 import { setupDragDropListener } from './events/dragDrop';
 
 function App() {
@@ -17,14 +17,41 @@ function App() {
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
-  const [outputDirectory, setOutputDirectory] = useState<string>('');
-  const [preserveMetadata, setPreserveMetadata] = useState(true);
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    output_path: {
+      mode: 'same_as_input',
+      custom_directory: undefined,
+    },
+    preserve_metadata: true,
+    compression_level: 50,
+    auto_delete: false,
+  });
+  const [currentOutputMode, setCurrentOutputMode] = useState<'same_as_input' | 'custom_directory'>('same_as_input');
+  const [customDirectory, setCustomDirectory] = useState<string>('');
   const [ffmpegAvailable, setFFmpegAvailable] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check FFmpeg availability on startup
+  // Load user settings and check FFmpeg availability on startup
   useEffect(() => {
-    checkFFmpegAvailability();
+    const initializeApp = async () => {
+      // Load settings first
+      try {
+        const settings = await TauriAPI.loadUserSettings();
+        setUserSettings(settings);
+        setCurrentOutputMode(settings.output_path.mode);
+        if (settings.output_path.custom_directory) {
+          setCustomDirectory(settings.output_path.custom_directory);
+        }
+      } catch (error) {
+        console.error('Failed to load user settings:', error);
+        // Continue with defaults
+      }
+      
+      // Then check FFmpeg availability
+      await checkFFmpegAvailability();
+    };
+
+    initializeApp();
   }, []);
 
   // Set up event listeners for conversion progress and completion
@@ -173,16 +200,57 @@ function App() {
     })));
   };
 
+  const handleOutputModeChange = async (mode: 'same_as_input' | 'custom_directory') => {
+    setCurrentOutputMode(mode);
+    
+    // Update and save settings
+    const updatedSettings = {
+      ...userSettings,
+      output_path: {
+        mode,
+        custom_directory: mode === 'custom_directory' ? customDirectory || undefined : undefined,
+      }
+    };
+    
+    setUserSettings(updatedSettings);
+    
+    try {
+      await TauriAPI.saveUserSettings(updatedSettings);
+    } catch (error) {
+      console.error('Failed to save output mode setting:', error);
+    }
+  };
+
   const selectOutputDirectory = async () => {
     try {
       const directory = await TauriAPI.openDirectoryDialog();
       if (directory) {
-        setOutputDirectory(directory);
+        setCustomDirectory(directory);
+        
+        // Automatically switch to custom mode and save
+        const updatedSettings = {
+          ...userSettings,
+          output_path: {
+            mode: 'custom_directory' as const,
+            custom_directory: directory,
+          }
+        };
+        
+        setUserSettings(updatedSettings);
+        setCurrentOutputMode('custom_directory');
+        
+        try {
+          await TauriAPI.saveUserSettings(updatedSettings);
+        } catch (error) {
+          console.error('Failed to save custom directory setting:', error);
+        }
       }
     } catch (error) {
       console.error('Error selecting output directory:', error);
     }
   };
+
+
 
   const startConversion = async () => {
     if (files.length === 0 || !selectedFormat || !ffmpegAvailable) return;
@@ -190,8 +258,8 @@ function App() {
     const options: ConversionOptions = {
       output_format: selectedFormat,
       quality: selectedQuality,
-      output_dir: outputDirectory || undefined,
-      preserve_metadata: preserveMetadata,
+      output_dir: currentOutputMode === 'custom_directory' ? customDirectory || undefined : undefined,
+      preserve_metadata: userSettings.preserve_metadata,
     };
 
     // Start conversion for each file (include pending, error, and completed files for retry)
@@ -199,7 +267,9 @@ function App() {
       if (file.status === 'converting') continue; // Skip files currently being converted
 
       try {
-        const outputPath = TauriAPI.generateOutputPath(file.path, selectedFormat, outputDirectory);
+        const outputPath = currentOutputMode === 'custom_directory' && customDirectory
+          ? TauriAPI.generateOutputPath(file.path, selectedFormat, customDirectory)
+          : TauriAPI.generateOutputPath(file.path, selectedFormat);
         const conversionId = await TauriAPI.convertFile(file.path, outputPath, options);
         
         // Update file with conversion ID and status
@@ -373,23 +443,60 @@ function App() {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Output Directory (optional)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={outputDirectory}
-                      onChange={(e) => setOutputDirectory(e.target.value)}
-                      placeholder="Same as source file..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                    />
-                    <button
-                      onClick={selectOutputDirectory}
-                      className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
-                    >
-                      Browse
-                    </button>
+                  <div className="space-y-3">
+                    {/* Same as Input Option */}
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="radio"
+                        name="outputMode"
+                        value="same_as_input"
+                        checked={currentOutputMode === 'same_as_input'}
+                        onChange={() => handleOutputModeChange('same_as_input')}
+                        className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">
+                        Same as input file directory
+                      </span>
+                    </label>
+
+                    {/* Custom Directory Option */}
+                    <label className="flex items-start cursor-pointer">
+                      <input
+                        type="radio"
+                        name="outputMode"
+                        value="custom_directory"
+                        checked={currentOutputMode === 'custom_directory'}
+                        onChange={() => handleOutputModeChange('custom_directory')}
+                        className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 mt-0.5"
+                      />
+                      <div className="ml-2 flex-1">
+                        <span className="text-sm text-gray-700">Custom directory</span>
+                        
+                        {currentOutputMode === 'custom_directory' && (
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              type="text"
+                              value={customDirectory}
+                              onChange={(e) => setCustomDirectory(e.target.value)}
+                              placeholder="Choose output folder..."
+                              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <button 
+                              onClick={selectOutputDirectory}
+                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center"
+                            >
+                              <Folder className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                        
+                        {currentOutputMode === 'custom_directory' && customDirectory && (
+                          <div className="mt-1 text-xs text-gray-500">
+                            {customDirectory}
+                          </div>
+                        )}
+                      </div>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -466,17 +573,12 @@ function App() {
                   </select>
                 </div>
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="preserve-metadata"
-                    checked={preserveMetadata}
-                    onChange={(e) => setPreserveMetadata(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="preserve-metadata" className="ml-2 text-sm text-gray-700">
-                    Preserve original metadata
-                  </label>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-700">Preserve original metadata</span>
+                  <span className="text-sm text-gray-600">
+                    {userSettings.preserve_metadata ? 'Yes' : 'No'} 
+                    <span className="text-gray-400 ml-1">(configure in settings)</span>
+                  </span>
                 </div>
 
                 <div className="space-y-3">
@@ -550,6 +652,7 @@ function App() {
       <SettingsPanel
         isOpen={showSettingsPanel}
         onClose={() => setShowSettingsPanel(false)}
+        onSettingsUpdate={setUserSettings}
       />
     </div>
   );

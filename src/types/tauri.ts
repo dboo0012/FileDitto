@@ -30,4 +30,24 @@ export interface ConversionResult {
   error?: string;
 }
 
-export type ConversionStatus = 'pending' | 'converting' | 'completed' | 'error' | 'cancelled'; 
+export type ConversionStatus =
+  | "pending"
+  | "converting"
+  | "completed"
+  | "error"
+  | "cancelled";
+
+// User Settings Types
+export interface UserSettings {
+  output_path: OutputPathSettings;
+  preserve_metadata: boolean;
+  compression_level: number;
+  auto_delete: boolean;
+}
+
+export interface OutputPathSettings {
+  mode: OutputPathMode;
+  custom_directory?: string;
+}
+
+export type OutputPathMode = "same_as_input" | "custom_directory";
