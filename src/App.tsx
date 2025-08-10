@@ -66,7 +66,6 @@ function App() {
           file.conversionId === progress.id 
             ? { 
                 ...file, 
-                progress: progress.progress,
                 status: progress.status === 'Converting' ? 'converting' : file.status
               }
             : file
@@ -80,7 +79,6 @@ function App() {
             ? { 
                 ...file, 
                 status: result.success ? 'completed' : 'error',
-                progress: result.success ? 100 : file.progress,
                 errorMessage: result.error || undefined
               }
             : file

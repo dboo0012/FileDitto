@@ -112,12 +112,7 @@ export const MetadataModal = ({ file, isOpen, onClose }: MetadataModalProps) => 
                     <span className="text-gray-600">Output Format:</span>
                     <span className="font-medium text-blue-600">{file.outputFormat.toUpperCase()}</span>
                   </div>
-                  {file.progress !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Progress:</span>
-                      <span className="font-medium">{file.progress}%</span>
-                    </div>
-                  )}
+
                 </div>
               </div>
             )}

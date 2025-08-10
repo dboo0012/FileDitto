@@ -9,7 +9,6 @@ export interface FileItem {
   size: number;
   type: string;
   status: ConversionStatus;
-  progress?: number;
   outputFormat?: string;
   errorMessage?: string;
   metadata?: FileMetadata;
@@ -47,7 +46,7 @@ export const FileListItem = ({
     } else if (file.status === 'error') {
       return 'Failed';
     } else if (file.status === 'converting') {
-      return `Converting... ${file.progress || 0}%`;
+      return 'Converting...';
     } else {
       return 'Pending';
     }
@@ -97,14 +96,7 @@ export const FileListItem = ({
             </div>
           )}
 
-          {file.status === 'converting' && file.progress !== undefined && (
-            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${file.progress}%` }}
-              />
-            </div>
-          )}
+
 
           {file.status === 'error' && file.errorMessage && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
