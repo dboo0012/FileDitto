@@ -61,11 +61,8 @@ export const FileListItem = ({
             <p className="text-sm font-medium text-gray-900 truncate">
               {file.name}
             </p>
-            <span className="text-xs text-gray-500 ml-2 flex items-center">
-              {getStatusText()}
-            </span>
           </div>
-          
+
           <div className="flex items-center mt-1 text-xs text-gray-500">
             <span>{formatFileSize(file.size)}</span>
             {file.type && (
@@ -81,7 +78,7 @@ export const FileListItem = ({
               </>
             )}
           </div>
-
+            
           {file.metadata && (
             <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
               {file.metadata.dimensions && (
@@ -90,13 +87,8 @@ export const FileListItem = ({
               {file.metadata.duration && (
                 <span>{file.metadata.duration}</span>
               )}
-              {file.metadata.bitrate && (
-                <span>{file.metadata.bitrate}</span>
-              )}
             </div>
           )}
-
-
 
           {file.status === 'error' && file.errorMessage && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
@@ -107,6 +99,9 @@ export const FileListItem = ({
       </div>
       
       <div className="flex items-center ml-3 space-x-2">
+        <span className="text-xs text-gray-500 ml-2 flex items-center">
+          {getStatusText()}
+        </span>
         {file.metadata && onShowMetadata && (
           <button
             onClick={() => onShowMetadata(file)}
