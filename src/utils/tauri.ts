@@ -49,21 +49,21 @@ export class TauriAPI {
   }
 
   // Get conversion progress
-  static async getConversionProgress(
-    conversionId: string
-  ): Promise<ConversionProgress | null> {
-    try {
-      return await invoke<ConversionProgress | null>(
-        "get_conversion_progress",
-        {
-          conversionId,
-        }
-      );
-    } catch (error) {
-      console.error("Error getting conversion progress:", error);
-      return null;
-    }
-  }
+  // static async getConversionProgress(
+  //   conversionId: string
+  // ): Promise<ConversionProgress | null> {
+  //   try {
+  //     return await invoke<ConversionProgress | null>(
+  //       "get_conversion_progress",
+  //       {
+  //         conversionId,
+  //       }
+  //     );
+  //   } catch (error) {
+  //     console.error("Error getting conversion progress:", error);
+  //     return null;
+  //   }
+  // }
 
   // Cancel conversion
   static async cancelConversion(conversionId: string): Promise<boolean> {

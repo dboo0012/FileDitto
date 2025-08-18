@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 
 // Module declarations
 mod conversion;
+mod conversion_settings;
 mod ffmpeg;
 mod metadata;
 mod path;

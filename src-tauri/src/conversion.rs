@@ -1,5 +1,6 @@
 //! File conversion functionality using FFmpeg.
 
+use crate::conversion_settings;
 use crate::path;
 use crate::types::{ConversionOptions, ConversionProgress, ConversionResult, ConversionState};
 use anyhow::{anyhow, Result};
@@ -263,75 +264,15 @@ fn apply_format_settings(cmd: &mut Command, options: &ConversionOptions) -> Resu
         options.output_format
     );
 
-    match options.output_format.as_str() {
-        "mp4" => {
-            cmd.args(&["-c:v", "libx264"]);
-            let (preset, crf) = match options.quality.as_str() {
-                "high" => {
-                    println!("📈 MP4 Quality: High (preset=slow, crf=18)");
-                    ("slow", "18")
-                }
-                "medium" => {
-                    println!("📊 MP4 Quality: Medium (preset=medium, crf=23)");
-                    ("medium", "23")
-                }
-                "low" => {
-                    println!("📉 MP4 Quality: Low (preset=fast, crf=28)");
-                    ("fast", "28")
-                }
-                _ => {
-                    println!(
-                        "⚠️ Unknown quality '{}', defaulting to medium",
-                        options.quality
-                    );
-                    ("medium", "23")
-                }
-            };
-            cmd.args(&["-preset", preset, "-crf", crf]);
-        }
-        "webm" => {
-            cmd.args(&["-c:v", "libvpx-vp9"]);
-            let bitrate = match options.quality.as_str() {
-                "high" => {
-                    println!("📈 WebM Quality: High (bitrate=2M)");
-                    "2M"
-                }
-                "medium" => {
-                    println!("📊 WebM Quality: Medium (bitrate=1M)");
-                    "1M"
-                }
-                "low" => {
-                    println!("📉 WebM Quality: Low (bitrate=500k)");
-                    "500k"
-                }
-                _ => {
-                    println!(
-                        "⚠️ Unknown quality '{}', defaulting to medium",
-                        options.quality
-                    );
-                    "1M"
-                }
-            };
-            cmd.args(&["-b:v", bitrate]);
-        }
-        "avi" => {
-            println!("🎬 AVI: Using libx264 video codec and AAC audio codec");
-            cmd.args(&["-c:v", "libx264", "-c:a", "aac"]);
-        }
-        "mov" => {
-            println!("🎬 MOV: Using libx264 video codec and AAC audio codec");
-            cmd.args(&["-c:v", "libx264", "-c:a", "aac"]);
-        }
-        _ => {
-            let error_msg = format!(
-                "Unsupported output format: '{}'. Supported formats: mp4, webm, avi, mov",
-                options.output_format
-            );
-            println!("❌ {}", error_msg);
-            return Err(anyhow!(error_msg));
-        }
-    }
+    let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
 
+    config.apply_to_command(cmd);
+
+    println!(
+        "📊 Quality: {} for format: {}",
+        options.quality, options.output_format
+    );
     println!("✅ Format settings applied successfully");
+
     Ok(())
 }

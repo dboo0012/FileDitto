@@ -565,9 +565,9 @@ function App() {
                     onChange={(e) => setSelectedQuality(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="high">High Quality (Slower)</option>
-                    <option value="medium">Medium Quality (Balanced)</option>
-                    <option value="low">Low Quality (Faster)</option>
+                    <option value="high">High (Slower)</option>
+                    <option value="medium">Medium (Balanced)</option>
+                    <option value="low">Low (Faster)</option>
                   </select>
                 </div>
 
