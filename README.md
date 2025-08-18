@@ -2,7 +2,7 @@
 
 # FileDitto
 
-> Transform your files, Ditto-style.Transform your files, Ditto-style.
+> Transform your files, Ditto-style.
 
 Convert any files to your desired format. A ffmpeg-based media conversion tool, birthed from my resentment against ad-bloated online alternatives.
 
