@@ -1,11 +1,15 @@
-# convert-ffmpeg
+<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/132.png" alt="Ditto"/>
 
-An Electron based ffmpeg conversion tool birthed from my resentment against ad-bloated online conversion tools.
+# FileDitto
 
-# Tauri + React + Typescript
+> Transform your files, Ditto-style.Transform your files, Ditto-style.
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Convert any files to your desired format. A ffmpeg-based media conversion tool, birthed from my resentment against ad-bloated online alternatives.
 
-## Recommended IDE Setup
+# Built with
+![Tauri](https://img.shields.io/badge/Tauri-24C8D8?logo=tauri&logoColor=white&style=flat)
+![Rust](https://img.shields.io/badge/Rust-000000?logo=rust&logoColor=white&style=flat)
+![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black&style=flat)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white&style=flat)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?logo=tailwindcss&logoColor=white&style=flat)
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
