@@ -1,4 +1,4 @@
-import { Upload } from 'lucide-react';
+import { Upload, Folder } from "lucide-react";
 
 interface FileUploadZoneProps {
   dragActive: boolean;
@@ -10,21 +10,38 @@ export const FileUploadZone = ({
   onBrowseClick,
 }: FileUploadZoneProps) => {
   return (
-    <div
-      className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
-        dragActive 
-          ? 'border-blue-400 bg-blue-50' 
-          : 'border-gray-300 hover:border-gray-400'
-      }`}
-      onClick={onBrowseClick}
-    >
-      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-      <p className="text-sm text-gray-600 mb-2">
-        <span className="font-medium text-blue-600">Click to browse files</span> or drag and drop
-      </p>
-      <p className="text-xs text-gray-500">
-        Support for video, audio, and image files (MP4, AVI, MP3, JPG, PNG, etc.)
-      </p>
-    </div>
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-medium text-gray-900">Upload Files</h2>
+        <button
+          onClick={onBrowseClick}
+          className="flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+        >
+          <Folder className="h-4 w-4 mr-1" />
+          Browse Files
+        </button>
+      </div>
+
+      <div
+        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+          dragActive
+            ? "border-blue-400 bg-blue-50"
+            : "border-gray-300 hover:border-gray-400"
+        }`}
+        onClick={onBrowseClick}
+      >
+        <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <p className="text-sm text-gray-600 mb-2">
+          <span className="font-medium text-blue-600">
+            Click to browse files
+          </span>{" "}
+          or drag and drop
+        </p>
+        <p className="text-xs text-gray-500">
+          Support for video, audio, and image files (MP4, AVI, MP3, JPG, PNG,
+          etc.)
+        </p>
+      </div>
+    </>
   );
-}; 
+};
