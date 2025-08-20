@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    convert_ffmpeg_lib::run()
+    fileditto_lib::run()
 }
