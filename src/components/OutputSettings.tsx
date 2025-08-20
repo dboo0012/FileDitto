@@ -1,11 +1,12 @@
 import React from "react";
-import { Folder } from "lucide-react";
+import { Folder, FolderOpen } from "lucide-react";
 
 interface OutputSettingsProps {
   currentOutputMode: "same_as_input" | "custom_directory";
   customDirectory: string;
   onOutputModeChange: (mode: "same_as_input" | "custom_directory") => void;
   onSelectOutputDirectory: () => void;
+  onOpenOutputFolder?: (path?: string) => void;
   setCustomDirectory: (directory: string) => void;
 }
 
@@ -14,6 +15,7 @@ export const OutputSettings: React.FC<OutputSettingsProps> = ({
   customDirectory,
   onOutputModeChange,
   onSelectOutputDirectory,
+  onOpenOutputFolder,
   setCustomDirectory,
 }) => {
   return (
@@ -65,9 +67,19 @@ export const OutputSettings: React.FC<OutputSettingsProps> = ({
                     <button
                       onClick={onSelectOutputDirectory}
                       className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center"
+                      title="Select output folder"
                     >
                       <Folder className="h-4 w-4" />
                     </button>
+                    {customDirectory && onOpenOutputFolder && (
+                      <button
+                        onClick={() => onOpenOutputFolder(customDirectory)}
+                        className="px-3 py-2 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors flex items-center"
+                        title="Open output folder"
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 )}
 

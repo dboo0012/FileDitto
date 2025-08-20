@@ -166,18 +166,18 @@ export class TauriAPI {
     outputFormat: string,
     outputDir?: string
   ): string {
-    const pathParts = inputPath.replace(/\\/g, "/").split("/");
+    const pathParts = inputPath.replace(/\//g, "\\").split("\\");
     const fileName = pathParts[pathParts.length - 1];
     const baseName =
       fileName.substring(0, fileName.lastIndexOf(".")) || fileName;
     const newFileName = `${baseName}_converted.${outputFormat}`;
 
     if (outputDir) {
-      return `${outputDir}/${newFileName}`;
+      return `${outputDir}\\${newFileName}`;
     } else {
       // Use same directory as input file
       pathParts[pathParts.length - 1] = newFileName;
-      return pathParts.join("/");
+      return pathParts.join("\\");
     }
   }
 
@@ -253,7 +253,7 @@ export class TauriAPI {
     outputFormat: string,
     settings: UserSettings
   ): string {
-    const pathParts = inputPath.replace(/\\/g, "/").split("/");
+    const pathParts = inputPath.replace(/\//g, "\\").split("\\");
     const fileName = pathParts[pathParts.length - 1];
     const baseName =
       fileName.substring(0, fileName.lastIndexOf(".")) || fileName;
@@ -262,17 +262,22 @@ export class TauriAPI {
     switch (settings.output_path.mode) {
       case "custom_directory":
         if (settings.output_path.custom_directory) {
-          return `${settings.output_path.custom_directory}/${newFileName}`;
+          return `${settings.output_path.custom_directory}\\${newFileName}`;
         }
         // Fallback to same as input if custom directory not set
         pathParts[pathParts.length - 1] = newFileName;
-        return pathParts.join("/");
+        return pathParts.join("\\");
 
       case "same_as_input":
       default:
         // Use same directory as input file
         pathParts[pathParts.length - 1] = newFileName;
-        return pathParts.join("/");
+        return pathParts.join("\\");
     }
+  }
+
+  // Open file location in system explorer
+  static async openFileLocation(filePath: string): Promise<void> {
+    return invoke("open_file_location", { filePath });
   }
 }

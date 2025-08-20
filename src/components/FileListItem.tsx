@@ -5,6 +5,7 @@ import {
   X,
   Info,
   StopCircle,
+  FolderOpen,
 } from "lucide-react";
 import { FileMetadata, ConversionStatus } from "../types/tauri";
 import { TauriAPI } from "../utils/tauri";
@@ -17,6 +18,7 @@ export interface FileItem {
   type: string;
   status: ConversionStatus;
   outputFormat?: string;
+  outputPath?: string;
   errorMessage?: string;
   metadata?: FileMetadata;
   conversionId?: string;
@@ -27,6 +29,7 @@ interface FileListItemProps {
   onRemove: (id: string) => void;
   onShowMetadata?: (file: FileItem) => void;
   onCancel?: (conversionId: string) => void;
+  onOpenFolder?: (filePath: string) => void;
 }
 
 export const FileListItem = ({
@@ -34,6 +37,7 @@ export const FileListItem = ({
   onRemove,
   onShowMetadata,
   onCancel,
+  onOpenFolder,
 }: FileListItemProps) => {
   const formatFileSize = TauriAPI.formatFileSize;
 
@@ -124,6 +128,15 @@ export const FileListItem = ({
             title="Show metadata"
           >
             <Info className="h-4 w-4" />
+          </button>
+        )}
+        {file.status === "completed" && onOpenFolder && (
+          <button
+            onClick={() => onOpenFolder(file.outputPath || file.path)}
+            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+            title="Open output folder"
+          >
+            <FolderOpen className="h-4 w-4" />
           </button>
         )}
         {file.status === "converting" && file.conversionId && onCancel && (

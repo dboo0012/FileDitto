@@ -33,6 +33,7 @@ export const useConversion = ({ files, updateFilesByConversionId }: UseConversio
         (result: ConversionResult) => {
           updateFilesByConversionId(result.id, {
             status: result.success ? "completed" : "error",
+            outputPath: result.output_path || undefined,
             errorMessage: result.error || undefined,
           });
         }

@@ -87,6 +87,17 @@ function App() {
     setShowMetadataModal(true);
   };
 
+  const openOutputFolder = async (filePath?: string) => {
+    if (!filePath) return;
+
+    console.log("Opening folder for file:", filePath);
+    try {
+      await TauriAPI.openFileLocation(filePath);
+    } catch (error) {
+      console.error("Error opening file location:", error);
+    }
+  };
+
   const startConversion = async () => {
     await ConversionService.startConversion(
       files,
@@ -176,6 +187,7 @@ function App() {
                 onCancel={cancelConversion}
                 onCancelAll={cancelAllConversions}
                 onClearAll={() => clearAllFiles(cancelConversion)}
+                onOpenFolder={openOutputFolder}
               />
             </div>
           </div>
@@ -191,6 +203,7 @@ function App() {
             setCustomDirectory={setCustomDirectory}
             onOutputModeChange={handleOutputModeChange}
             onSelectOutputDirectory={selectOutputDirectory}
+            onOpenOutputFolder={openOutputFolder}
             onStartConversion={startConversion}
             onResetFiles={resetFilesForRetry}
             preserveMetadata={userSettings.preserve_metadata}

@@ -10,6 +10,7 @@ interface FileListProps {
   onCancel: (conversionId: string) => void;
   onCancelAll: () => Promise<void> | void;
   onClearAll: () => Promise<void> | void;
+  onOpenFolder?: (filePath: string) => void;
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -20,6 +21,7 @@ export const FileList: React.FC<FileListProps> = ({
   onCancel,
   onCancelAll,
   onClearAll,
+  onOpenFolder,
 }) => {
   // Check if there are any files currently converting
   const convertingFiles = files.filter((f) => f.status === "converting");
@@ -68,6 +70,7 @@ export const FileList: React.FC<FileListProps> = ({
                 onRemove={onRemove}
                 onShowMetadata={onShowMetadata}
                 onCancel={onCancel}
+                onOpenFolder={onOpenFolder}
               />
             ))}
           </div>

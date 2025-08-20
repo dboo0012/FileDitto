@@ -15,6 +15,7 @@ interface ConversionPanelProps {
   setCustomDirectory: (directory: string) => void;
   onOutputModeChange: (mode: "same_as_input" | "custom_directory") => void;
   onSelectOutputDirectory: () => void;
+  onOpenOutputFolder?: (path?: string) => void;
   onStartConversion: () => void;
   onResetFiles: () => void;
   preserveMetadata: boolean;
@@ -33,6 +34,7 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
   setCustomDirectory,
   onOutputModeChange,
   onSelectOutputDirectory,
+  onOpenOutputFolder,
   onStartConversion,
   onResetFiles,
   preserveMetadata,
@@ -46,6 +48,7 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
         customDirectory={customDirectory}
         onOutputModeChange={onOutputModeChange}
         onSelectOutputDirectory={onSelectOutputDirectory}
+        onOpenOutputFolder={onOpenOutputFolder}
         setCustomDirectory={setCustomDirectory}
       />
 
@@ -62,7 +65,10 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
         ffmpegAvailable={ffmpegAvailable}
       />
 
-      <ConversionSummary files={files} />
+      <ConversionSummary
+        files={files}
+        onOpenOutputFolder={onOpenOutputFolder}
+      />
     </div>
   );
 };

@@ -42,7 +42,8 @@ pub fn run() {
             ffmpeg::check_ffmpeg_availability,
             settings::load_user_settings,
             settings::save_user_settings,
-            settings::reset_user_settings
+            settings::reset_user_settings,
+            path::open_file_location
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
