@@ -1,6 +1,13 @@
-import { FileText, CheckCircle, AlertCircle, X, Info } from 'lucide-react';
-import { FileMetadata, ConversionStatus } from '../types/tauri';
-import { TauriAPI } from '../utils/tauri';
+import {
+  FileText,
+  CheckCircle,
+  AlertCircle,
+  X,
+  Info,
+  StopCircle,
+} from "lucide-react";
+import { FileMetadata, ConversionStatus } from "../types/tauri";
+import { TauriAPI } from "../utils/tauri";
 
 export interface FileItem {
   id: string;
@@ -19,36 +26,44 @@ interface FileListItemProps {
   file: FileItem;
   onRemove: (id: string) => void;
   onShowMetadata?: (file: FileItem) => void;
+  onCancel?: (conversionId: string) => void;
 }
 
-export const FileListItem = ({ 
-  file, 
-  onRemove, 
-  onShowMetadata 
+export const FileListItem = ({
+  file,
+  onRemove,
+  onShowMetadata,
+  onCancel,
 }: FileListItemProps) => {
   const formatFileSize = TauriAPI.formatFileSize;
 
   const getStatusIcon = () => {
-    if (file.status === 'completed') {
+    if (file.status === "completed") {
       return <CheckCircle className="h-5 w-5 text-green-500" />;
-    } else if (file.status === 'error') {
+    } else if (file.status === "error") {
       return <AlertCircle className="h-5 w-5 text-red-500" />;
-    } else if (file.status === 'converting') {
-      return <div className="h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />;
+    } else if (file.status === "cancelled") {
+      return <StopCircle className="h-5 w-5 text-orange-500" />;
+    } else if (file.status === "converting") {
+      return (
+        <div className="h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      );
     } else {
       return <FileText className="h-5 w-5 text-gray-400" />;
     }
   };
 
   const getStatusText = () => {
-    if (file.status === 'completed') {
-      return 'Completed';
-    } else if (file.status === 'error') {
-      return 'Failed';
-    } else if (file.status === 'converting') {
-      return 'Converting...';
+    if (file.status === "completed") {
+      return "Completed";
+    } else if (file.status === "error") {
+      return "Failed";
+    } else if (file.status === "cancelled") {
+      return "Cancelled";
+    } else if (file.status === "converting") {
+      return "Converting...";
     } else {
-      return 'Pending';
+      return "Pending";
     }
   };
 
@@ -74,30 +89,30 @@ export const FileListItem = ({
             {file.outputFormat && (
               <>
                 <span className="mx-1">→</span>
-                <span className="text-blue-600 font-medium">{file.outputFormat.toUpperCase()}</span>
+                <span className="text-blue-600 font-medium">
+                  {file.outputFormat.toUpperCase()}
+                </span>
               </>
             )}
           </div>
-            
+
           {file.metadata && (
             <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
               {file.metadata.dimensions && (
                 <span>{file.metadata.dimensions}</span>
               )}
-              {file.metadata.duration && (
-                <span>{file.metadata.duration}</span>
-              )}
+              {file.metadata.duration && <span>{file.metadata.duration}</span>}
             </div>
           )}
 
-          {file.status === 'error' && file.errorMessage && (
+          {file.status === "error" && file.errorMessage && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
               {file.errorMessage}
             </div>
           )}
         </div>
       </div>
-      
+
       <div className="flex items-center ml-3 space-x-2">
         <span className="text-xs text-gray-500 ml-2 flex items-center">
           {getStatusText()}
@@ -111,6 +126,15 @@ export const FileListItem = ({
             <Info className="h-4 w-4" />
           </button>
         )}
+        {file.status === "converting" && file.conversionId && onCancel && (
+          <button
+            onClick={() => onCancel(file.conversionId!)}
+            className="p-1 text-orange-400 hover:text-orange-600 transition-colors"
+            title="Cancel conversion"
+          >
+            <StopCircle className="h-4 w-4" />
+          </button>
+        )}
         <button
           onClick={() => onRemove(file.id)}
           className="p-1 text-gray-400 hover:text-red-600 transition-colors"
@@ -121,4 +145,4 @@ export const FileListItem = ({
       </div>
     </div>
   );
-}; 
+};

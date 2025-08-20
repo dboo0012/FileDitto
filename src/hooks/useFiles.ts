@@ -43,13 +43,37 @@ export const useFiles = () => {
     console.log("Laoded files", newFiles);
   }, []);
 
-  const removeFile = useCallback((id: string) => {
+  const removeFile = useCallback(async (id: string, onCancel?: (conversionId: string) => Promise<void>) => {
+    // Find the file to check if it's currently converting
+    const file = files.find(f => f.id === id);
+    
+    if (file && file.status === 'converting' && file.conversionId && onCancel) {
+      // Cancel the conversion first
+      console.log("File is currently converting, cancelling conversion first");
+      await onCancel(file.conversionId);
+    }
+    
     setFiles((prev) => prev.filter((file) => file.id !== id));
-  }, []);
+  }, [files]);
 
-  const clearAllFiles = useCallback(() => {
+  const clearAllFiles = useCallback(async (onCancel?: (conversionId: string) => Promise<void>) => {
+    if (onCancel) {
+      // Cancel all ongoing conversions first
+      const convertingFiles = files.filter(f => f.status === 'converting' && f.conversionId);
+      
+      if (convertingFiles.length > 0) {
+        console.log(`Cancelling ${convertingFiles.length} ongoing conversions before clearing all files`);
+        // Cancel all conversions in parallel
+        await Promise.all(
+          convertingFiles.map(file => 
+            file.conversionId ? onCancel(file.conversionId) : Promise.resolve()
+          )
+        );
+      }
+    }
+    
     setFiles([]);
-  }, []);
+  }, [files]);
 
   const resetFilesForRetry = useCallback(() => {
     setFiles((prev) =>

@@ -1,13 +1,15 @@
 import React from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, StopCircle } from "lucide-react";
 import { FileListItem, FileItem } from "./FileListItem";
 
 interface FileListProps {
   files: FileItem[];
   isLoading: boolean;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<void> | void;
   onShowMetadata: (file: FileItem) => void;
-  onClearAll: () => void;
+  onCancel: (conversionId: string) => void;
+  onCancelAll: () => Promise<void> | void;
+  onClearAll: () => Promise<void> | void;
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -15,8 +17,13 @@ export const FileList: React.FC<FileListProps> = ({
   isLoading,
   onRemove,
   onShowMetadata,
+  onCancel,
+  onCancelAll,
   onClearAll,
 }) => {
+  // Check if there are any files currently converting
+  const convertingFiles = files.filter((f) => f.status === "converting");
+  const hasConvertingFiles = convertingFiles.length > 0;
   return (
     <>
       {/* Loading Indicator */}
@@ -34,13 +41,24 @@ export const FileList: React.FC<FileListProps> = ({
             <h3 className="text-sm font-medium text-gray-900">
               Selected Files ({files.length})
             </h3>
-            <button
-              onClick={onClearAll}
-              className="flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Clear All
-            </button>
+            <div className="flex items-center space-x-2">
+              {hasConvertingFiles && (
+                <button
+                  onClick={onCancelAll}
+                  className="flex items-center px-3 py-1 text-sm text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded transition-colors"
+                >
+                  <StopCircle className="h-4 w-4 mr-1" />
+                  Cancel All ({convertingFiles.length})
+                </button>
+              )}
+              <button
+                onClick={onClearAll}
+                className="flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Clear All
+              </button>
+            </div>
           </div>
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {files.map((file) => (
@@ -49,6 +67,7 @@ export const FileList: React.FC<FileListProps> = ({
                 file={file}
                 onRemove={onRemove}
                 onShowMetadata={onShowMetadata}
+                onCancel={onCancel}
               />
             ))}
           </div>

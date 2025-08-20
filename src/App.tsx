@@ -99,6 +99,54 @@ function App() {
     );
   };
 
+  const cancelConversion = async (conversionId: string) => {
+    try {
+      console.log("Cancelling conversion:", conversionId);
+      const success = await TauriAPI.cancelConversion(conversionId);
+      if (success) {
+        console.log("Conversion cancelled successfully");
+        // Update file status to indicate it was cancelled
+        updateFilesByConversionId(conversionId, {
+          status: "error",
+          errorMessage: "Conversion was cancelled by user",
+        });
+      } else {
+        console.warn("Failed to cancel conversion");
+      }
+    } catch (error) {
+      console.error("Error cancelling conversion:", error);
+    }
+  };
+
+  const cancelAllConversions = async () => {
+    try {
+      // Find all files that are currently converting
+      const convertingFiles = files.filter(
+        (f) => f.status === "converting" && f.conversionId
+      );
+
+      if (convertingFiles.length === 0) {
+        console.log("No conversions to cancel");
+        return;
+      }
+
+      console.log(`Cancelling ${convertingFiles.length} conversions`);
+
+      // Cancel all conversions in parallel
+      await Promise.all(
+        convertingFiles.map((file) =>
+          file.conversionId
+            ? cancelConversion(file.conversionId)
+            : Promise.resolve()
+        )
+      );
+
+      console.log("All conversions cancelled successfully");
+    } catch (error) {
+      console.error("Error cancelling all conversions:", error);
+    }
+  };
+
   // Show FFmpeg warning if not available
   if (ffmpegAvailable === false) {
     return <FFmpegWarning onRetry={() => checkFFmpegAvailability()} />;
@@ -123,9 +171,11 @@ function App() {
               <FileList
                 files={files}
                 isLoading={isLoading}
-                onRemove={removeFile}
+                onRemove={(fileId) => removeFile(fileId, cancelConversion)}
                 onShowMetadata={showMetadata}
-                onClearAll={clearAllFiles}
+                onCancel={cancelConversion}
+                onCancelAll={cancelAllConversions}
+                onClearAll={() => clearAllFiles(cancelConversion)}
               />
             </div>
           </div>
