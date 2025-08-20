@@ -151,17 +151,3 @@ fn get_mov_config() -> FormatConfig {
         bitrate: None,
     }
 }
-
-/// Get all supported formats
-pub fn get_supported_formats() -> Vec<&'static str> {
-    vec!["mp4", "webm", "avi", "mov"]
-}
-
-/// Get all supported quality levels for a given format
-pub fn get_supported_qualities(format: &str) -> Vec<&'static str> {
-    match format {
-        "mp4" | "webm" => vec!["high", "medium", "low"],
-        "avi" | "mov" => vec!["default"],
-        _ => vec![],
-    }
-}

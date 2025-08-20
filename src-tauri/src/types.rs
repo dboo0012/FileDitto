@@ -34,6 +34,7 @@ pub struct ConversionProgress {
     pub progress: f32,
     pub status: String,
     pub current_file: String,
+    pub output_path: Option<String>,
     pub eta: Option<String>,
     pub speed: Option<String>,
 }
@@ -49,3 +50,6 @@ pub struct ConversionResult {
 
 /// Global state for tracking active conversions.
 pub type ConversionState = Arc<Mutex<HashMap<String, ConversionProgress>>>;
+
+/// Global state for tracking active conversion process IDs for cancellation.
+pub type ProcessHandles = Arc<Mutex<HashMap<String, u32>>>;

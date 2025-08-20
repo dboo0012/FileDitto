@@ -25,6 +25,7 @@ pub use types::*;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let conversion_state: ConversionState = Arc::new(Mutex::new(HashMap::new()));
+    let process_handles: ProcessHandles = Arc::new(Mutex::new(HashMap::new()));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -32,6 +33,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(conversion_state)
+        .manage(process_handles)
         .invoke_handler(tauri::generate_handler![
             metadata::extract_file_metadata,
             conversion::convert_file,

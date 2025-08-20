@@ -2,7 +2,9 @@
 
 use crate::conversion_settings;
 use crate::path;
-use crate::types::{ConversionOptions, ConversionProgress, ConversionResult, ConversionState};
+use crate::types::{
+    ConversionOptions, ConversionProgress, ConversionResult, ConversionState, ProcessHandles,
+};
 use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -44,6 +46,7 @@ pub async fn convert_file(
                 progress: 0.0,
                 status: "Starting".to_string(),
                 current_file: file_path.clone(),
+                output_path: Some(output_path.clone()),
                 eta: None,
                 speed: None,
             },
@@ -97,15 +100,137 @@ pub async fn cancel_conversion(
     conversion_id: String,
     app_handle: AppHandle,
 ) -> Result<bool, String> {
-    let state: ConversionState = app_handle.state::<ConversionState>().inner().clone();
-    let mut conversions = state.lock().unwrap();
+    println!("🛑 Cancelling conversion: {}", &conversion_id[..8]);
 
-    if let Some(progress) = conversions.get_mut(&conversion_id) {
-        progress.status = "Cancelled".to_string();
-        // TODO: Kill the actual FFmpeg process (requires storing process handles)
-        Ok(true)
-    } else {
-        Err("Conversion not found".to_string())
+    // Update status to cancelling first and get output path for cleanup
+    let output_path_for_cleanup: Option<String>;
+    let state: ConversionState = app_handle.state::<ConversionState>().inner().clone();
+    {
+        let mut conversions = state.lock().unwrap();
+        if let Some(progress) = conversions.get_mut(&conversion_id) {
+            progress.status = "Cancelling".to_string();
+            output_path_for_cleanup = progress.output_path.clone();
+            println!(
+                "📊 Updated status to 'Cancelling' for conversion: {}",
+                &conversion_id[..8]
+            );
+            let _ = app_handle.emit("conversion_progress", progress.clone());
+        } else {
+            return Err("Conversion not found".to_string());
+        }
+    }
+
+    // Kill the actual FFmpeg process using OS kill commands
+    let process_handles: ProcessHandles = app_handle.state::<ProcessHandles>().inner().clone();
+    {
+        let mut handles = process_handles.lock().unwrap();
+        if let Some(process_id) = handles.remove(&conversion_id) {
+            #[cfg(target_os = "windows")]
+            {
+                use std::process::Command;
+                match Command::new("taskkill")
+                    .args(&["/F", "/PID", &process_id.to_string()])
+                    .output()
+                {
+                    Ok(output) => {
+                        if output.status.success() {
+                            println!(
+                                "✅ FFmpeg process killed successfully for conversion: {}",
+                                &conversion_id[..8]
+                            );
+
+                            // Clean up partial output file
+                            if let Some(output_path) = &output_path_for_cleanup {
+                                if Path::new(output_path).exists() {
+                                    match std::fs::remove_file(output_path) {
+                                        Ok(_) => {
+                                            println!(
+                                                "🧹 Removed partial output file: {}",
+                                                output_path
+                                            );
+                                        }
+                                        Err(e) => {
+                                            println!(
+                                                "⚠️ Failed to remove partial output file: {} - {}",
+                                                output_path, e
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    println!("ℹ️ No partial output file to clean up");
+                                }
+                            }
+
+                            Ok(true)
+                        } else {
+                            let error = String::from_utf8_lossy(&output.stderr);
+                            println!("❌ Failed to kill FFmpeg process: {}", error);
+                            Err(format!("Failed to kill process: {}", error))
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ Failed to execute taskkill: {}", e);
+                        Err(format!("Failed to execute taskkill: {}", e))
+                    }
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                use std::process::Command;
+                match Command::new("kill")
+                    .args(&["-9", &process_id.to_string()])
+                    .output()
+                {
+                    Ok(output) => {
+                        if output.status.success() {
+                            println!(
+                                "✅ FFmpeg process killed successfully for conversion: {}",
+                                &conversion_id[..8]
+                            );
+
+                            // Clean up partial output file
+                            if let Some(output_path) = &output_path_for_cleanup {
+                                if Path::new(output_path).exists() {
+                                    match std::fs::remove_file(output_path) {
+                                        Ok(_) => {
+                                            println!(
+                                                "🧹 Removed partial output file: {}",
+                                                output_path
+                                            );
+                                        }
+                                        Err(e) => {
+                                            println!(
+                                                "⚠️ Failed to remove partial output file: {} - {}",
+                                                output_path, e
+                                            );
+                                        }
+                                    }
+                                } else {
+                                    println!("ℹ️ No partial output file to clean up");
+                                }
+                            }
+
+                            Ok(true)
+                        } else {
+                            let error = String::from_utf8_lossy(&output.stderr);
+                            println!("❌ Failed to kill FFmpeg process: {}", error);
+                            Err(format!("Failed to kill process: {}", error))
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ Failed to execute kill: {}", e);
+                        Err(format!("Failed to execute kill: {}", e))
+                    }
+                }
+            }
+        } else {
+            println!(
+                "⚠️ Process not found or already completed for conversion: {}",
+                &conversion_id[..8]
+            );
+            // Still return Ok(true) since the conversion is effectively "cancelled"
+            Ok(true)
+        }
     }
 }
 
@@ -167,6 +292,14 @@ async fn perform_conversion(
         anyhow!(error_msg)
     })?;
 
+    // Store process ID for potential cancellation
+    let process_id = child.id();
+    let process_handles: ProcessHandles = app_handle.state::<ProcessHandles>().inner().clone();
+    {
+        let mut handles = process_handles.lock().unwrap();
+        handles.insert(conversion_id.to_string(), process_id);
+    }
+
     // Update status to converting
     {
         let mut conversions = state.lock().unwrap();
@@ -178,6 +311,7 @@ async fn perform_conversion(
 
     // Wait for FFmpeg process to complete
     println!("⏳ Waiting for FFmpeg process to complete...");
+
     let output = child.wait_with_output().map_err(|e| {
         let error_msg = format!("FFmpeg process failed to complete: {}", e);
         println!("❌ {}", error_msg);
@@ -252,6 +386,13 @@ async fn perform_conversion(
     {
         let mut conversions = state.lock().unwrap();
         conversions.remove(conversion_id);
+    }
+
+    // Remove process handle from tracking
+    {
+        let process_handles: ProcessHandles = app_handle.state::<ProcessHandles>().inner().clone();
+        let mut handles = process_handles.lock().unwrap();
+        handles.remove(conversion_id);
     }
 
     Ok(output_path.to_string())
