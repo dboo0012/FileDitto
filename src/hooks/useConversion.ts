@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ConversionProgress, ConversionResult } from '../types/tauri';
 import { TauriAPI } from '../utils/tauri';
 import { FileItem } from '../components/FileListItem';
+import { FormatUtils } from '../types/supportedFormats';
 
 interface UseConversionProps {
   files: FileItem[];
@@ -46,25 +47,16 @@ export const useConversion = ({ files, updateFilesByConversionId }: UseConversio
     };
   }, [updateFilesByConversionId]);
 
-  const getFormatRecommendations = () => {
+  const getFormatRecommendations = (): string[] => {
     if (files.length === 0) return [];
 
-    const hasVideo = files.some(
-      (f) => f.type === "video" || f.type.startsWith("video/")
-    );
-    const hasAudio = files.some(
-      (f) => f.type === "audio" || f.type.startsWith("audio/")
-    );
-    const hasImage = files.some(
-      (f) => f.type === "image" || f.type.startsWith("image/")
-    );
-
-    const recommendations = [];
-    if (hasVideo) recommendations.push("mp4", "webm");
-    if (hasAudio) recommendations.push("mp3", "wav");
-    if (hasImage) recommendations.push("jpg", "png", "webp");
-
-    return recommendations;
+    // Use the new format utilities for more accurate recommendations
+    const fileInfo = files.map(file => ({
+      name: file.name,
+      type: file.type
+    }));
+    
+    return FormatUtils.getRecommendedFormats(fileInfo);
   };
 
   return {

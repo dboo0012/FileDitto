@@ -1,5 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { FileItem } from "./FileListItem";
+import {
+  FormatUtils,
+  SupportedFormat,
+  QualityLevel,
+  SUPPORTED_FORMATS,
+} from "../types/supportedFormats";
+import { useFormatRecommendations } from "../hooks/useFormatRecommendations";
 
 interface FormatSettingsProps {
   selectedFormat: string;
@@ -30,6 +37,86 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
     (f) => f.status === "error" || f.status === "completed"
   );
 
+  // Use the format recommendations hook
+  const { recommendedFormats, availableFormats, isFormatCompatible } =
+    useFormatRecommendations(files);
+
+  // Get available quality levels for selected format
+  const availableQualities = useMemo(() => {
+    if (!selectedFormat) return ["high", "medium", "low"] as QualityLevel[];
+    return FormatUtils.getAvailableQualities(selectedFormat as SupportedFormat);
+  }, [selectedFormat]);
+
+  // Update quality when format changes
+  React.useEffect(() => {
+    if (
+      selectedFormat &&
+      !availableQualities.includes(selectedQuality as QualityLevel)
+    ) {
+      const defaultQuality = FormatUtils.getDefaultQuality(
+        selectedFormat as SupportedFormat
+      );
+      setSelectedQuality(defaultQuality);
+    }
+  }, [selectedFormat, availableQualities, selectedQuality, setSelectedQuality]);
+
+  // Render format options grouped by media type
+  const renderFormatOptions = () => {
+    const options: JSX.Element[] = [];
+
+    Object.entries(availableFormats).forEach(([mediaType, formats]) => {
+      if (formats.length > 0) {
+        options.push(
+          <optgroup key={mediaType} label={mediaType}>
+            {formats.map((format) => {
+              const formatInfo = SUPPORTED_FORMATS[format];
+              const isCompatible = isFormatCompatible(format);
+
+              return (
+                <option key={format} value={format} disabled={!isCompatible}>
+                  {formatInfo.name} ({format.toUpperCase()})
+                  {!isCompatible ? " - Not compatible" : ""}
+                </option>
+              );
+            })}
+          </optgroup>
+        );
+      }
+    });
+
+    return options;
+  };
+
+  // Render quality options
+  const renderQualityOptions = () => {
+    return availableQualities.map((quality) => {
+      let label = quality.charAt(0).toUpperCase() + quality.slice(1);
+      let description = "";
+
+      switch (quality) {
+        case "high":
+          description = " (Best quality, slower)";
+          break;
+        case "medium":
+          description = " (Balanced)";
+          break;
+        case "low":
+          description = " (Faster, smaller file)";
+          break;
+        case "default":
+          description = " (Standard)";
+          break;
+      }
+
+      return (
+        <option key={quality} value={quality}>
+          {label}
+          {description}
+        </option>
+      );
+    });
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -47,42 +134,33 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Select format...</option>
-            <optgroup label="Video">
-              <option value="mp4">MP4</option>
-              <option value="avi">AVI</option>
-              <option value="mov">MOV</option>
-              <option value="webm">WebM</option>
-              <option value="mkv">MKV</option>
-            </optgroup>
-            <optgroup label="Audio">
-              <option value="mp3">MP3</option>
-              <option value="wav">WAV</option>
-              <option value="aac">AAC</option>
-              <option value="flac">FLAC</option>
-              <option value="ogg">OGG</option>
-            </optgroup>
-            <optgroup label="Image">
-              <option value="jpg">JPG</option>
-              <option value="png">PNG</option>
-              <option value="webp">WebP</option>
-              <option value="gif">GIF</option>
-              <option value="bmp">BMP</option>
-            </optgroup>
+            {renderFormatOptions()}
           </select>
 
-          {recommendations.length > 0 && (
+          {files.length > 0 && (
+            <div className="mt-2 text-xs text-gray-500">
+              Showing formats compatible with your uploaded files
+            </div>
+          )}
+
+          {(recommendedFormats.length > 0 || recommendations.length > 0) && (
             <div className="mt-2">
               <p className="text-xs text-gray-500 mb-1">
                 Recommended for your files:
               </p>
               <div className="flex flex-wrap gap-1">
-                {recommendations.map((format) => (
+                {/* Use hook recommendations first, fallback to prop recommendations */}
+                {(recommendedFormats.length > 0
+                  ? recommendedFormats
+                  : recommendations
+                ).map((format) => (
                   <button
                     key={format}
                     onClick={() => setSelectedFormat(format)}
                     className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors"
                   >
-                    {format.toUpperCase()}
+                    {SUPPORTED_FORMATS[format as SupportedFormat]?.name ||
+                      format.toUpperCase()}
                   </button>
                 ))}
               </div>
@@ -97,12 +175,19 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
           <select
             value={selectedQuality}
             onChange={(e) => setSelectedQuality(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={!selectedFormat}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
-            <option value="high">High (Slower)</option>
-            <option value="medium">Medium (Balanced)</option>
-            <option value="low">Low (Faster)</option>
+            {renderQualityOptions()}
           </select>
+
+          {selectedFormat && (
+            <div className="mt-1 text-xs text-gray-500">
+              Available qualities for{" "}
+              {SUPPORTED_FORMATS[selectedFormat as SupportedFormat]?.name ||
+                selectedFormat}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between">

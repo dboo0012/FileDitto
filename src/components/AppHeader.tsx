@@ -1,6 +1,6 @@
 import React from "react";
 import { Settings } from "lucide-react";
-import dittoLogo from "../../public/ditto.png";
+import dittoLogo from "/ditto.png";
 
 interface AppHeaderProps {
   ffmpegAvailable: boolean | null;
