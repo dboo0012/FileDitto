@@ -38,7 +38,6 @@ function App() {
     setSelectedFormat,
     selectedQuality,
     setSelectedQuality,
-    getFormatRecommendations,
   } = useConversion({ files, updateFilesByConversionId });
 
   const {
@@ -207,7 +206,6 @@ function App() {
             onStartConversion={startConversion}
             onResetFiles={resetFilesForRetry}
             preserveMetadata={userSettings.preserve_metadata}
-            getFormatRecommendations={getFormatRecommendations}
             ffmpegAvailable={ffmpegAvailable}
           />
         </div>

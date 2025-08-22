@@ -6,7 +6,7 @@ import {
   QualityLevel,
   SUPPORTED_FORMATS,
 } from "../types/supportedFormats";
-import { useFormatRecommendations } from "../hooks/useFormatRecommendations";
+import { FormatSelector } from "./FormatSelector";
 
 interface FormatSettingsProps {
   selectedFormat: string;
@@ -14,7 +14,6 @@ interface FormatSettingsProps {
   selectedQuality: string;
   setSelectedQuality: (quality: string) => void;
   preserveMetadata: boolean;
-  recommendations: string[];
   onStartConversion: () => void;
   onResetFiles: () => void;
   files: FileItem[];
@@ -27,7 +26,6 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
   selectedQuality,
   setSelectedQuality,
   preserveMetadata,
-  recommendations,
   onStartConversion,
   onResetFiles,
   files,
@@ -37,9 +35,8 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
     (f) => f.status === "error" || f.status === "completed"
   );
 
-  // Use the format recommendations hook
-  const { recommendedFormats, availableFormats, isFormatCompatible } =
-    useFormatRecommendations(files);
+  // Check if any files are currently converting
+  const isConverting = files.some((f) => f.status === "converting");
 
   // Get available quality levels for selected format
   const availableQualities = useMemo(() => {
@@ -60,32 +57,7 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
     }
   }, [selectedFormat, availableQualities, selectedQuality, setSelectedQuality]);
 
-  // Render format options grouped by media type
-  const renderFormatOptions = () => {
-    const options: JSX.Element[] = [];
 
-    Object.entries(availableFormats).forEach(([mediaType, formats]) => {
-      if (formats.length > 0) {
-        options.push(
-          <optgroup key={mediaType} label={mediaType}>
-            {formats.map((format) => {
-              const formatInfo = SUPPORTED_FORMATS[format];
-              const isCompatible = isFormatCompatible(format);
-
-              return (
-                <option key={format} value={format} disabled={!isCompatible}>
-                  {formatInfo.name} ({format.toUpperCase()})
-                  {!isCompatible ? " - Not compatible" : ""}
-                </option>
-              );
-            })}
-          </optgroup>
-        );
-      }
-    });
-
-    return options;
-  };
 
   // Render quality options
   const renderQualityOptions = () => {
@@ -123,50 +95,13 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
         Conversion Settings
       </h3>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Output Format
-          </label>
-          <select
-            value={selectedFormat}
-            onChange={(e) => setSelectedFormat(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Select format...</option>
-            {renderFormatOptions()}
-          </select>
-
-          {files.length > 0 && (
-            <div className="mt-2 text-xs text-gray-500">
-              Showing formats compatible with your uploaded files
-            </div>
-          )}
-
-          {(recommendedFormats.length > 0 || recommendations.length > 0) && (
-            <div className="mt-2">
-              <p className="text-xs text-gray-500 mb-1">
-                Recommended for your files:
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {/* Use hook recommendations first, fallback to prop recommendations */}
-                {(recommendedFormats.length > 0
-                  ? recommendedFormats
-                  : recommendations
-                ).map((format) => (
-                  <button
-                    key={format}
-                    onClick={() => setSelectedFormat(format)}
-                    className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors"
-                  >
-                    {SUPPORTED_FORMATS[format as SupportedFormat]?.name ||
-                      format.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+      <div className="space-y-6">
+        <FormatSelector
+          selectedFormat={selectedFormat}
+          onFormatSelect={setSelectedFormat}
+          files={files}
+          isDisabled={isConverting}
+        />
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -175,7 +110,7 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
           <select
             value={selectedQuality}
             onChange={(e) => setSelectedQuality(e.target.value)}
-            disabled={!selectedFormat}
+            disabled={!selectedFormat || isConverting}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             {renderQualityOptions()}
@@ -203,13 +138,13 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
         <div className="space-y-3">
           <button
             onClick={onStartConversion}
-            disabled={files.length === 0 || !selectedFormat || !ffmpegAvailable}
+            disabled={files.length === 0 || !selectedFormat || !ffmpegAvailable || isConverting}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            Start Conversion
+            {isConverting ? "Converting..." : "Start Conversion"}
           </button>
 
-          {hasRetryableFiles && (
+          {hasRetryableFiles && !isConverting && (
             <button
               onClick={onResetFiles}
               className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors font-medium text-sm"

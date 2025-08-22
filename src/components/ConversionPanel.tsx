@@ -19,7 +19,6 @@ interface ConversionPanelProps {
   onStartConversion: () => void;
   onResetFiles: () => void;
   preserveMetadata: boolean;
-  getFormatRecommendations: () => string[];
   ffmpegAvailable: boolean | null;
 }
 
@@ -38,7 +37,6 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
   onStartConversion,
   onResetFiles,
   preserveMetadata,
-  getFormatRecommendations,
   ffmpegAvailable,
 }) => {
   return (
@@ -58,7 +56,6 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
         selectedQuality={selectedQuality}
         setSelectedQuality={setSelectedQuality}
         preserveMetadata={preserveMetadata}
-        recommendations={getFormatRecommendations()}
         onStartConversion={onStartConversion}
         onResetFiles={onResetFiles}
         files={files}
