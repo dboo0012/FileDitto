@@ -123,8 +123,24 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
       </h3>
 
       <div className="space-y-6">
-        {/* Conditional rendering based on media type */}
-        {primaryMediaType === "image" ? (
+        {/* Show message when no files are uploaded */}
+        {files.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-gray-400 mb-2">
+              <svg
+                className="mx-auto h-12 w-12"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+              </svg>
+            </div>
+            <p className="text-gray-500 text-sm">
+              Upload files to view supported formats
+            </p>
+          </div>
+        ) : /* Conditional rendering based on media type */
+        primaryMediaType === "image" ? (
           <ImageFormatSettings
             selectedFormat={selectedFormat}
             onFormatSelect={setSelectedFormat}
