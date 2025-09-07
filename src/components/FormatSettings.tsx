@@ -7,6 +7,7 @@ import {
   SUPPORTED_FORMATS,
 } from "../types/supportedFormats";
 import { FormatSelector } from "./FormatSelector";
+import { ImageFormatSettings } from "./ImageFormatSettings";
 
 interface FormatSettingsProps {
   selectedFormat: string;
@@ -57,7 +58,32 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
     }
   }, [selectedFormat, availableQualities, selectedQuality, setSelectedQuality]);
 
+  // Determine if we're dealing with image files
+  const isImageConversion = useMemo(() => {
+    if (!files.length) return false;
+    return files.some(
+      (file) => FormatUtils.detectMediaType(file.name) === "image"
+    );
+  }, [files]);
 
+  // Determine the primary media type
+  const primaryMediaType = useMemo(() => {
+    if (!files.length) return null;
+    const types = files
+      .map((file) => FormatUtils.detectMediaType(file.name))
+      .filter(Boolean);
+    if (types.length === 0) return null;
+
+    // Return the most common media type
+    const typeCounts = types.reduce((acc, type) => {
+      acc[type!] = (acc[type!] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return (
+      Object.entries(typeCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || null
+    );
+  }, [files]);
 
   // Render quality options
   const renderQualityOptions = () => {
@@ -96,34 +122,48 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
       </h3>
 
       <div className="space-y-6">
-        <FormatSelector
-          selectedFormat={selectedFormat}
-          onFormatSelect={setSelectedFormat}
-          files={files}
-          isDisabled={isConverting}
-        />
+        {/* Conditional rendering based on media type */}
+        {primaryMediaType === "image" ? (
+          <ImageFormatSettings
+            selectedFormat={selectedFormat}
+            onFormatSelect={setSelectedFormat}
+            selectedQuality={selectedQuality}
+            onQualitySelect={setSelectedQuality}
+            files={files}
+            isDisabled={isConverting}
+          />
+        ) : (
+          <>
+            <FormatSelector
+              selectedFormat={selectedFormat}
+              onFormatSelect={setSelectedFormat}
+              files={files}
+              isDisabled={isConverting}
+            />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Quality
-          </label>
-          <select
-            value={selectedQuality}
-            onChange={(e) => setSelectedQuality(e.target.value)}
-            disabled={!selectedFormat || isConverting}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-          >
-            {renderQualityOptions()}
-          </select>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Quality
+              </label>
+              <select
+                value={selectedQuality}
+                onChange={(e) => setSelectedQuality(e.target.value)}
+                disabled={!selectedFormat || isConverting}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                {renderQualityOptions()}
+              </select>
 
-          {selectedFormat && (
-            <div className="mt-1 text-xs text-gray-500">
-              Available qualities for{" "}
-              {SUPPORTED_FORMATS[selectedFormat as SupportedFormat]?.name ||
-                selectedFormat}
+              {selectedFormat && (
+                <div className="mt-1 text-xs text-gray-500">
+                  Available qualities for{" "}
+                  {SUPPORTED_FORMATS[selectedFormat as SupportedFormat]?.name ||
+                    selectedFormat}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-700">
@@ -138,7 +178,12 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
         <div className="space-y-3">
           <button
             onClick={onStartConversion}
-            disabled={files.length === 0 || !selectedFormat || !ffmpegAvailable || isConverting}
+            disabled={
+              files.length === 0 ||
+              !selectedFormat ||
+              !ffmpegAvailable ||
+              isConverting
+            }
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
           >
             {isConverting ? "Converting..." : "Start Conversion"}

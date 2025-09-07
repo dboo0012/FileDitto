@@ -38,8 +38,11 @@ export const FileUploadZone = ({
           or drag and drop
         </p>
         <p className="text-xs text-gray-500">
-          Support for video, audio, and image files (MP4, AVI, MP3, JPG, PNG,
-          etc.)
+          Support for video, audio, and image files
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          Video: MP4, AVI, MOV, WebM • Audio: MP3, AAC, WAV • Images: JPG, PNG,
+          WebP, BMP, TIFF
         </p>
       </div>
     </>

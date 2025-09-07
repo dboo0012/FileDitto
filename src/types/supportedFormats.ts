@@ -203,8 +203,8 @@ export const SUPPORTED_FORMATS: Record<SupportedFormat, MediaFormatInfo> = {
     extension: 'png',
     type: 'image',
     description: 'Lossless image format with transparency',
-    supportedQualities: ['default'],
-    defaultQuality: 'default',
+    supportedQualities: ['high', 'medium', 'low'],
+    defaultQuality: 'medium',
     isLossless: true,
   },
   webp: {
@@ -237,8 +237,8 @@ export const SUPPORTED_FORMATS: Record<SupportedFormat, MediaFormatInfo> = {
     extension: 'tiff',
     type: 'image',
     description: 'Professional image format',
-    supportedQualities: ['default'],
-    defaultQuality: 'default',
+    supportedQualities: ['high', 'medium', 'low'],
+    defaultQuality: 'medium',
     isLossless: true,
   },
   svg: {
@@ -377,7 +377,10 @@ export const FILE_TYPE_PATTERNS: FileTypePattern[] = [
 
 // Currently supported formats in backend (based on Rust code)
 export const BACKEND_SUPPORTED_FORMATS: SupportedFormat[] = [
-  'mp4', 'webm', 'avi', 'mov'
+  // Video formats
+  'mp4', 'webm', 'avi', 'mov',
+  // Image formats  
+  'jpeg', 'png', 'webp', 'bmp', 'tiff'
 ];
 
 /**

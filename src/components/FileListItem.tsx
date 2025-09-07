@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { FileMetadata, ConversionStatus } from "../types/tauri";
 import { TauriAPI } from "../utils/tauri";
+import { FormatUtils } from "../types/supportedFormats";
+import { ImagePreview } from "./ImagePreview";
 
 export interface FileItem {
   id: string;
@@ -75,6 +77,14 @@ export const FileListItem = ({
     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
       <div className="flex items-center min-w-0 flex-1">
         {getStatusIcon()}
+
+        {/* Add image preview for image files */}
+        {FormatUtils.detectMediaType(file.name) === "image" && (
+          <div className="ml-3 flex-shrink-0">
+            <ImagePreview file={file} className="w-12 h-12" />
+          </div>
+        )}
+
         <div className="ml-3 min-w-0 flex-1">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-gray-900 truncate">

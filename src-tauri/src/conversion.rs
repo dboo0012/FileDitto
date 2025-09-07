@@ -261,13 +261,22 @@ async fn perform_conversion(
     let ffmpeg_path = path::ffmpeg_path();
     println!("🔧 Using FFmpeg path: {}", ffmpeg_path.display());
 
+    // Determine if this is an image conversion
+    let is_image_conversion = is_image_format(&options.output_format);
+
     // Build FFmpeg command based on output format
     let mut cmd = Command::new(&ffmpeg_path);
     cmd.args(&["-y", "-i", input_path]);
 
-    // Add format-specific arguments
-    println!("🎬 Applying format settings for: {}", options.output_format);
-    apply_format_settings(&mut cmd, options)?;
+    if is_image_conversion {
+        // Apply image-specific settings
+        println!("🖼️ Applying image settings for: {}", options.output_format);
+        apply_image_settings(&mut cmd, options)?;
+    } else {
+        // Apply format-specific arguments for video/audio
+        println!("🎬 Applying format settings for: {}", options.output_format);
+        apply_format_settings(&mut cmd, options)?;
+    }
 
     // Add metadata preservation option
     if !options.preserve_metadata {
@@ -414,6 +423,60 @@ fn apply_format_settings(cmd: &mut Command, options: &ConversionOptions) -> Resu
         options.quality, options.output_format
     );
     println!("✅ Format settings applied successfully");
+
+    Ok(())
+}
+
+/// Check if the given format is an image format
+fn is_image_format(format: &str) -> bool {
+    matches!(format, "jpeg" | "png" | "webp" | "bmp" | "tiff")
+}
+
+/// Applies image-specific FFmpeg settings based on the conversion options
+fn apply_image_settings(cmd: &mut Command, options: &ConversionOptions) -> Result<()> {
+    println!(
+        "🖼️ Configuring image settings for: {}",
+        options.output_format
+    );
+
+    let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
+
+    // For images, we need to specify that we want only one frame
+    cmd.args(&["-vframes", "1"]);
+
+    // Apply the format configuration
+    config.apply_to_command(cmd);
+
+    // Add format-specific optimizations
+    match options.output_format.as_str() {
+        "jpeg" => {
+            // JPEG-specific optimizations
+            cmd.args(&["-pix_fmt", "yuvj420p"]);
+        }
+        "png" => {
+            // PNG-specific optimizations
+            cmd.args(&["-pix_fmt", "rgba"]);
+        }
+        "webp" => {
+            // WebP-specific optimizations
+            cmd.args(&["-pix_fmt", "yuva420p"]);
+        }
+        "bmp" => {
+            // BMP-specific optimizations
+            cmd.args(&["-pix_fmt", "bgr24"]);
+        }
+        "tiff" => {
+            // TIFF-specific optimizations
+            cmd.args(&["-pix_fmt", "rgb24"]);
+        }
+        _ => {}
+    }
+
+    println!(
+        "📊 Quality: {} for format: {}",
+        options.quality, options.output_format
+    );
+    println!("✅ Image settings applied successfully");
 
     Ok(())
 }
