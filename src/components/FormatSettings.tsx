@@ -8,6 +8,7 @@ import {
 } from "../types/supportedFormats";
 import { FormatSelector } from "./FormatSelector";
 import { ImageFormatSettings } from "./ImageFormatSettings";
+import { VideoFormatSettings } from "./VideoFormatSettings";
 
 interface FormatSettingsProps {
   selectedFormat: string;
@@ -125,6 +126,15 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
         {/* Conditional rendering based on media type */}
         {primaryMediaType === "image" ? (
           <ImageFormatSettings
+            selectedFormat={selectedFormat}
+            onFormatSelect={setSelectedFormat}
+            selectedQuality={selectedQuality}
+            onQualitySelect={setSelectedQuality}
+            files={files}
+            isDisabled={isConverting}
+          />
+        ) : primaryMediaType === "video" ? (
+          <VideoFormatSettings
             selectedFormat={selectedFormat}
             onFormatSelect={setSelectedFormat}
             selectedQuality={selectedQuality}
