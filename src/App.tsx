@@ -183,6 +183,7 @@ function App() {
               <FileUploadZone
                 dragActive={dragActive}
                 onBrowseClick={handleFileSelect}
+                hasFiles={files.length > 0}
               />
 
               <div className="-mt-2">

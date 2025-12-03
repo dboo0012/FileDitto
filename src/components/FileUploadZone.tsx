@@ -1,14 +1,46 @@
-import { Upload } from "lucide-react";
+import { Upload, Plus } from "lucide-react";
 
 interface FileUploadZoneProps {
   dragActive: boolean;
   onBrowseClick: () => void;
+  hasFiles?: boolean;
 }
 
 export const FileUploadZone = ({
   dragActive,
   onBrowseClick,
+  hasFiles = false,
 }: FileUploadZoneProps) => {
+  // Compact centered version when files are already uploaded
+  if (hasFiles) {
+    return (
+      <div
+        className={`
+          group border-2 border-dashed rounded-xl py-4 text-center transition-all duration-200 cursor-pointer mb-4
+          ${
+            dragActive
+              ? "border-blue-500 bg-blue-50 ring-2 ring-blue-100"
+              : "border-gray-300 hover:border-blue-400 hover:bg-gray-50"
+          }
+        `}
+        onClick={onBrowseClick}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <div className={`
+            h-8 w-8 flex items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110
+            ${dragActive ? "bg-blue-100 text-blue-600" : "bg-blue-50 text-blue-600 group-hover:bg-blue-100"}
+          `}>
+            <Plus className="h-4 w-4" />
+          </div>
+          <p className="text-sm font-medium text-blue-600 group-hover:text-blue-700">
+            Add more files
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Full version when no files are uploaded
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
