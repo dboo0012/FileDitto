@@ -39,6 +39,10 @@ function App() {
     qualitiesByType,
     setFormatForType,
     setQualityForType,
+    customSettings,
+    setVideoSettings,
+    setAudioSettings,
+    setImageSettings,
   } = useConversion({ updateFilesByConversionId });
 
   const {
@@ -103,6 +107,7 @@ function App() {
       files,
       formatsByType,
       qualitiesByType,
+      customSettings,
       currentOutputMode,
       customDirectory,
       userSettings.preserve_metadata,
@@ -217,6 +222,10 @@ function App() {
                 qualitiesByType={qualitiesByType}
                 setFormatForType={setFormatForType}
                 setQualityForType={setQualityForType}
+                customSettings={customSettings}
+                onVideoSettingsChange={setVideoSettings}
+                onAudioSettingsChange={setAudioSettings}
+                onImageSettingsChange={setImageSettings}
                 onOpenOutputFolder={openOutputFolder}
                 onStartConversion={startConversion}
                 onResetFiles={resetFilesForRetry}

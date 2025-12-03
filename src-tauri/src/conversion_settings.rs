@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 use std::process::Command;
 
+use crate::types::{AudioQualityOptions, ImageQualityOptions, VideoQualityOptions};
+
 #[derive(Debug, Clone)]
 pub struct FormatConfig {
     pub video_codec: &'static str,
@@ -48,6 +50,154 @@ impl FormatConfig {
         if let Some(compression) = self.compression {
             cmd.args(["-compression_level", compression]);
         }
+    }
+}
+
+/// Apply custom video settings to FFmpeg command
+pub fn apply_custom_video_settings(
+    cmd: &mut Command,
+    settings: &VideoQualityOptions,
+    output_format: &str,
+) {
+    // Apply video encoder
+    let codec = match settings.encoder.as_str() {
+        "h264" => "libx264",
+        "h265" => "libx265",
+        "av1" => {
+            if output_format == "webm" {
+                "libaom-av1"
+            } else {
+                "libsvtav1"
+            }
+        }
+        "vp9" => "libvpx-vp9",
+        _ => "libx264",
+    };
+    cmd.args(["-c:v", codec]);
+
+    // Apply encoding preset based on encoder
+    let preset = match settings.encoder.as_str() {
+        "h264" | "h265" => {
+            // Map quality (1-100) to preset
+            // Higher quality = slower preset
+            if settings.quality >= 80 {
+                Some("slow")
+            } else if settings.quality >= 50 {
+                Some("medium")
+            } else {
+                Some("fast")
+            }
+        }
+        _ => None,
+    };
+    if let Some(p) = preset {
+        cmd.args(["-preset", p]);
+    }
+
+    // Apply CRF/quality based on encoder and quality setting
+    // Quality 1-100 maps to CRF (lower CRF = higher quality)
+    // CRF range: 0-51 for x264/x265, we use 15-35 range
+    let crf = 35 - ((settings.quality as f32 / 100.0) * 20.0) as i32;
+    let crf_str = crf.to_string();
+
+    match settings.encoder.as_str() {
+        "h264" | "h265" => {
+            cmd.args(["-crf", &crf_str]);
+        }
+        "vp9" => {
+            // VP9 uses b:v for quality control
+            let bitrate = format!("{}k", 500 + (settings.quality * 45)); // 500k to 5M
+            cmd.args(["-b:v", &bitrate]);
+            cmd.args(["-crf", &crf_str]);
+        }
+        "av1" => {
+            // AV1 uses crf similar to x264/x265
+            cmd.args(["-crf", &crf_str]);
+        }
+        _ => {}
+    }
+
+    // Apply resolution if not "original"
+    if settings.resolution != "original" {
+        let scale = match settings.resolution.as_str() {
+            "480p" => "scale=-2:480",
+            "720p" => "scale=-2:720",
+            "1080p" => "scale=-2:1080",
+            "1440p" => "scale=-2:1440",
+            "2160p" => "scale=-2:2160",
+            _ => "",
+        };
+        if !scale.is_empty() {
+            cmd.args(["-vf", scale]);
+        }
+    }
+
+    // Apply frame rate if not "original"
+    if settings.frame_rate != "original" {
+        cmd.args(["-r", &settings.frame_rate]);
+    }
+
+    // Apply audio codec based on format
+    match output_format {
+        "mp4" | "mov" | "mkv" => {
+            cmd.args(["-c:a", "aac"]);
+            cmd.args(["-b:a", "192k"]);
+        }
+        "webm" => {
+            cmd.args(["-c:a", "libopus"]);
+            cmd.args(["-b:a", "128k"]);
+        }
+        "avi" => {
+            cmd.args(["-c:a", "mp3"]);
+            cmd.args(["-b:a", "192k"]);
+        }
+        _ => {}
+    }
+}
+
+/// Apply custom audio settings to FFmpeg command
+/// Note: Currently not exposed in UI per design decision to keep audio at sensible defaults
+#[allow(dead_code)]
+pub fn apply_custom_audio_settings(cmd: &mut Command, settings: &AudioQualityOptions) {
+    // Apply audio bitrate
+    let bitrate = format!("{}k", settings.bitrate);
+    cmd.args(["-b:a", &bitrate]);
+
+    // Apply sample rate
+    let sample_rate = settings.sample_rate.to_string();
+    cmd.args(["-ar", &sample_rate]);
+}
+
+/// Apply custom image settings to FFmpeg command
+pub fn apply_custom_image_settings(
+    cmd: &mut Command,
+    settings: &ImageQualityOptions,
+    output_format: &str,
+) {
+    match output_format {
+        "jpeg" => {
+            // JPEG quality: -q:v 2-31 (lower is better)
+            // Map 1-100 to 31-2
+            let q = 31 - ((settings.quality as f32 / 100.0) * 29.0) as i32;
+            let q = q.clamp(2, 31);
+            cmd.args(["-q:v", &q.to_string()]);
+        }
+        "png" => {
+            // PNG compression: 0-9 (higher = more compression)
+            // Map 1-100 to 0-9
+            let compression = ((settings.quality as f32 / 100.0) * 9.0) as i32;
+            let compression = compression.clamp(0, 9);
+            cmd.args(["-compression_level", &compression.to_string()]);
+        }
+        "webp" => {
+            // WebP quality: 0-100
+            cmd.args(["-quality", &settings.quality.to_string()]);
+        }
+        "tiff" => {
+            // TIFF uses compression method
+            cmd.args(["-compression_algo", "lzw"]);
+        }
+        _ => {}
     }
 }
 

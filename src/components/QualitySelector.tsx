@@ -8,12 +8,21 @@ import {
   MediaType,
   MediaTypeFormats,
   MediaTypeQualities,
+  CustomQualitySettings,
+  VideoQualitySettings,
+  AudioQualitySettings,
+  ImageQualitySettings,
 } from "../types/supportedFormats";
+import { AdvancedQualitySettings } from "./AdvancedQualitySettings";
 
 interface QualitySelectorProps {
   formatsByType: MediaTypeFormats;
   qualitiesByType: MediaTypeQualities;
   setQualityForType: (mediaType: MediaType, quality: QualityLevel) => void;
+  customSettings: CustomQualitySettings;
+  onVideoSettingsChange: (settings: VideoQualitySettings) => void;
+  onAudioSettingsChange: (settings: AudioQualitySettings) => void;
+  onImageSettingsChange: (settings: ImageQualitySettings) => void;
   files: FileItem[];
   isDisabled?: boolean;
 }
@@ -22,6 +31,10 @@ export const QualitySelector: React.FC<QualitySelectorProps> = ({
   formatsByType,
   qualitiesByType,
   setQualityForType,
+  customSettings,
+  onVideoSettingsChange,
+  onAudioSettingsChange,
+  onImageSettingsChange,
   files,
   isDisabled = false,
 }) => {
@@ -57,8 +70,9 @@ export const QualitySelector: React.FC<QualitySelectorProps> = ({
   }, [currentFormat]);
 
   // Update quality when format changes and current quality is not available
+  // Note: "custom" is always valid, so we don't reset if custom is selected
   useEffect(() => {
-    if (currentFormat && !availableQualities.includes(currentQuality)) {
+    if (currentFormat && currentQuality !== "custom" && !availableQualities.includes(currentQuality)) {
       const defaultQuality = FormatUtils.getDefaultQuality(currentFormat as SupportedFormat);
       setQualityForType(activeTab, defaultQuality);
     }
@@ -72,6 +86,8 @@ export const QualitySelector: React.FC<QualitySelectorProps> = ({
         return "Balanced quality and size";
       case "low":
         return "Smallest file size, lower quality";
+      case "custom":
+        return "Fine-tune encoder, resolution, and more";
       case "default":
         return "Standard settings";
       default:
@@ -174,38 +190,89 @@ export const QualitySelector: React.FC<QualitySelectorProps> = ({
 
       {/* Quality Options */}
       {currentFormat ? (
-        <div className="space-y-2">
-          {availableQualities.map((quality) => (
-            <label
-              key={quality}
-              className={`
-                flex items-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer
-                ${currentQuality === quality
-                  ? "bg-blue-50 border-blue-500 text-blue-900"
-                  : "bg-white border-gray-200 hover:border-blue-300"
-                }
-                ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
-              `}
-            >
-              <input
-                type="radio"
-                name={`quality-${activeTab}`}
-                value={quality}
-                checked={currentQuality === quality}
-                onChange={(e) => !isDisabled && setQualityForType(activeTab, e.target.value as QualityLevel)}
-                disabled={isDisabled}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-              />
-              <div className="ml-3 flex-1">
-                <div className="font-medium text-sm capitalize">
-                  {quality} Quality
+        <div>
+          <div className="space-y-2">
+            {/* Preset quality options */}
+            {availableQualities.map((quality) => (
+              <label
+                key={quality}
+                className={`
+                  flex items-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer
+                  ${currentQuality === quality
+                    ? "bg-blue-50 border-blue-500 text-blue-900"
+                    : "bg-white border-gray-200 hover:border-blue-300"
+                  }
+                  ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+                `}
+              >
+                <input
+                  type="radio"
+                  name={`quality-${activeTab}`}
+                  value={quality}
+                  checked={currentQuality === quality}
+                  onChange={(e) => !isDisabled && setQualityForType(activeTab, e.target.value as QualityLevel)}
+                  disabled={isDisabled}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="font-medium text-sm capitalize">
+                    {quality} Quality
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {getQualityDescription(quality)}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-600">
-                  {getQualityDescription(quality)}
+              </label>
+            ))}
+
+            {/* Custom quality option */}
+            {!availableQualities.includes("default") && (
+              <label
+                className={`
+                  flex items-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer
+                  ${currentQuality === "custom"
+                    ? "bg-blue-50 border-blue-500 text-blue-900"
+                    : "bg-white border-gray-200 hover:border-blue-300"
+                  }
+                  ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
+                `}
+              >
+                <input
+                  type="radio"
+                  name={`quality-${activeTab}`}
+                  value="custom"
+                  checked={currentQuality === "custom"}
+                  onChange={(e) => !isDisabled && setQualityForType(activeTab, e.target.value as QualityLevel)}
+                  disabled={isDisabled}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                />
+                <div className="ml-3 flex-1">
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    <Sliders className="w-4 h-4" />
+                    Custom
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {getQualityDescription("custom")}
+                  </div>
                 </div>
-              </div>
-            </label>
-          ))}
+              </label>
+            )}
+          </div>
+
+          {/* Custom Quality Settings Panel - shown when custom is selected */}
+          {currentQuality === "custom" && (
+            <AdvancedQualitySettings
+              mediaType={activeTab}
+              format={currentFormat}
+              videoSettings={customSettings.video}
+              audioSettings={customSettings.audio}
+              imageSettings={customSettings.image}
+              onVideoSettingsChange={onVideoSettingsChange}
+              onAudioSettingsChange={onAudioSettingsChange}
+              onImageSettingsChange={onImageSettingsChange}
+              isDisabled={isDisabled}
+            />
+          )}
         </div>
       ) : (
         <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">

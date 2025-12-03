@@ -18,6 +18,36 @@ pub struct FileMetadata {
     pub size: Option<u64>,
 }
 
+/// Video quality settings for custom conversion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VideoQualityOptions {
+    pub encoder: String,
+    pub resolution: String,
+    pub frame_rate: String,
+    pub quality: i32,
+}
+
+/// Audio quality settings for custom conversion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AudioQualityOptions {
+    pub bitrate: i32,
+    pub sample_rate: i32,
+}
+
+/// Image quality settings for custom conversion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageQualityOptions {
+    pub quality: i32,
+}
+
+/// Custom quality settings union.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomQualityOptions {
+    pub video: Option<VideoQualityOptions>,
+    pub audio: Option<AudioQualityOptions>,
+    pub image: Option<ImageQualityOptions>,
+}
+
 /// Options for file conversion operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversionOptions {
@@ -25,6 +55,7 @@ pub struct ConversionOptions {
     pub quality: String,
     pub output_dir: Option<String>,
     pub preserve_metadata: bool,
+    pub custom_settings: Option<CustomQualityOptions>,
 }
 
 /// Progress information for ongoing conversions.

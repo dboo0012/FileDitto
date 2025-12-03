@@ -6,7 +6,42 @@
 export type MediaType = 'video' | 'audio' | 'image';
 
 // Quality levels for different formats
-export type QualityLevel = 'high' | 'medium' | 'low' | 'default';
+export type QualityLevel = 'high' | 'medium' | 'low' | 'custom' | 'default';
+
+// Video encoder options
+export type VideoEncoder = 'h264' | 'h265' | 'av1' | 'vp9';
+
+// Video resolution options
+export type VideoResolution = 'original' | '480p' | '720p' | '1080p' | '1440p' | '2160p';
+
+// Frame rate options
+export type FrameRate = 'original' | '24' | '30' | '60';
+
+// Custom quality settings for video
+export interface VideoQualitySettings {
+  encoder: VideoEncoder;
+  resolution: VideoResolution;
+  frameRate: FrameRate;
+  quality: number; // 1-100, higher = better quality
+}
+
+// Custom quality settings for audio (for audio-only files)
+export interface AudioQualitySettings {
+  bitrate: number; // in kbps: 64, 128, 192, 256, 320
+  sampleRate: number; // 22050, 44100, 48000
+}
+
+// Custom quality settings for images
+export interface ImageQualitySettings {
+  quality: number; // 1-100 for JPEG/WebP, compression level for PNG
+}
+
+// Combined custom quality settings by media type
+export interface CustomQualitySettings {
+  video: VideoQualitySettings;
+  audio: AudioQualitySettings;
+  image: ImageQualitySettings;
+}
 
 // Per-media-type format selection
 export interface MediaTypeFormats {
@@ -21,6 +56,85 @@ export interface MediaTypeQualities {
   audio: QualityLevel;
   image: QualityLevel;
 }
+
+// Default values for custom quality settings based on preset
+export const getDefaultVideoSettings = (preset: QualityLevel): VideoQualitySettings => {
+  switch (preset) {
+    case 'high':
+      return { encoder: 'h264', resolution: 'original', frameRate: 'original', quality: 85 };
+    case 'medium':
+      return { encoder: 'h264', resolution: 'original', frameRate: 'original', quality: 65 };
+    case 'low':
+      return { encoder: 'h264', resolution: '720p', frameRate: '30', quality: 45 };
+    default:
+      return { encoder: 'h264', resolution: 'original', frameRate: 'original', quality: 65 };
+  }
+};
+
+export const getDefaultAudioSettings = (preset: QualityLevel): AudioQualitySettings => {
+  switch (preset) {
+    case 'high':
+      return { bitrate: 320, sampleRate: 48000 };
+    case 'medium':
+      return { bitrate: 192, sampleRate: 44100 };
+    case 'low':
+      return { bitrate: 128, sampleRate: 44100 };
+    default:
+      return { bitrate: 192, sampleRate: 44100 };
+  }
+};
+
+export const getDefaultImageSettings = (preset: QualityLevel): ImageQualitySettings => {
+  switch (preset) {
+    case 'high':
+      return { quality: 90 };
+    case 'medium':
+      return { quality: 75 };
+    case 'low':
+      return { quality: 50 };
+    default:
+      return { quality: 75 };
+  }
+};
+
+export const getDefaultCustomSettings = (preset: QualityLevel): CustomQualitySettings => ({
+  video: getDefaultVideoSettings(preset),
+  audio: getDefaultAudioSettings(preset),
+  image: getDefaultImageSettings(preset),
+});
+
+// Display labels for settings
+export const VIDEO_ENCODER_LABELS: Record<VideoEncoder, string> = {
+  h264: 'H.264 (AVC)',
+  h265: 'H.265 (HEVC)',
+  av1: 'AV1',
+  vp9: 'VP9',
+};
+
+export const VIDEO_RESOLUTION_LABELS: Record<VideoResolution, string> = {
+  original: 'Original',
+  '480p': '480p (SD)',
+  '720p': '720p (HD)',
+  '1080p': '1080p (Full HD)',
+  '1440p': '1440p (2K)',
+  '2160p': '2160p (4K)',
+};
+
+export const FRAME_RATE_LABELS: Record<FrameRate, string> = {
+  original: 'Original',
+  '24': '24 fps (Cinema)',
+  '30': '30 fps (Standard)',
+  '60': '60 fps (Smooth)',
+};
+
+// Encoder availability per format
+export const FORMAT_SUPPORTED_ENCODERS: Record<string, VideoEncoder[]> = {
+  mp4: ['h264', 'h265', 'av1'],
+  webm: ['vp9', 'av1'],
+  avi: ['h264'],
+  mov: ['h264', 'h265'],
+  mkv: ['h264', 'h265', 'av1', 'vp9'],
+};
 
 // Supported format types by category
 export type VideoFormat = 'mp4' | 'webm' | 'avi' | 'mov' | 'mkv' | 'flv' | 'wmv' | '3gp';

@@ -1,7 +1,16 @@
 import { ConversionSummary } from "./ConversionSummary";
 import { FormatSettings } from "./FormatSettings";
 import { FileItem } from "./FileListItem";
-import { MediaType, MediaTypeFormats, MediaTypeQualities, QualityLevel } from "../types/supportedFormats";
+import {
+  MediaType,
+  MediaTypeFormats,
+  MediaTypeQualities,
+  QualityLevel,
+  CustomQualitySettings,
+  VideoQualitySettings,
+  AudioQualitySettings,
+  ImageQualitySettings,
+} from "../types/supportedFormats";
 
 interface ConversionPanelProps {
   files: FileItem[];
@@ -9,6 +18,10 @@ interface ConversionPanelProps {
   qualitiesByType: MediaTypeQualities;
   setFormatForType: (mediaType: MediaType, format: string) => void;
   setQualityForType: (mediaType: MediaType, quality: QualityLevel) => void;
+  customSettings: CustomQualitySettings;
+  onVideoSettingsChange: (settings: VideoQualitySettings) => void;
+  onAudioSettingsChange: (settings: AudioQualitySettings) => void;
+  onImageSettingsChange: (settings: ImageQualitySettings) => void;
   onOpenOutputFolder?: (path?: string) => void;
   onStartConversion: () => void;
   onResetFiles: () => void;
@@ -22,6 +35,10 @@ export const ConversionPanel = ({
   qualitiesByType,
   setFormatForType,
   setQualityForType,
+  customSettings,
+  onVideoSettingsChange,
+  onAudioSettingsChange,
+  onImageSettingsChange,
   onOpenOutputFolder,
   onStartConversion,
   onResetFiles,
@@ -40,6 +57,10 @@ export const ConversionPanel = ({
         qualitiesByType={qualitiesByType}
         setFormatForType={setFormatForType}
         setQualityForType={setQualityForType}
+        customSettings={customSettings}
+        onVideoSettingsChange={onVideoSettingsChange}
+        onAudioSettingsChange={onAudioSettingsChange}
+        onImageSettingsChange={onImageSettingsChange}
         preserveMetadata={preserveMetadata}
         onStartConversion={onStartConversion}
         onResetFiles={onResetFiles}

@@ -7,6 +7,10 @@ import {
   MediaType,
   MediaTypeFormats,
   MediaTypeQualities,
+  CustomQualitySettings,
+  VideoQualitySettings,
+  AudioQualitySettings,
+  ImageQualitySettings,
 } from "../types/supportedFormats";
 import { FormatSelector } from "./FormatSelector";
 import { QualitySelector } from "./QualitySelector";
@@ -18,6 +22,10 @@ interface FormatSettingsProps {
   qualitiesByType: MediaTypeQualities;
   setFormatForType: (mediaType: MediaType, format: string) => void;
   setQualityForType: (mediaType: MediaType, quality: QualityLevel) => void;
+  customSettings: CustomQualitySettings;
+  onVideoSettingsChange: (settings: VideoQualitySettings) => void;
+  onAudioSettingsChange: (settings: AudioQualitySettings) => void;
+  onImageSettingsChange: (settings: ImageQualitySettings) => void;
   preserveMetadata: boolean;
   onStartConversion: () => void;
   onResetFiles: () => void;
@@ -30,6 +38,10 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
   qualitiesByType,
   setFormatForType,
   setQualityForType,
+  customSettings,
+  onVideoSettingsChange,
+  onAudioSettingsChange,
+  onImageSettingsChange,
   preserveMetadata,
   onStartConversion,
   onResetFiles,
@@ -119,6 +131,10 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
             formatsByType={formatsByType}
             qualitiesByType={qualitiesByType}
             setQualityForType={setQualityForType}
+            customSettings={customSettings}
+            onVideoSettingsChange={onVideoSettingsChange}
+            onAudioSettingsChange={onAudioSettingsChange}
+            onImageSettingsChange={onImageSettingsChange}
             files={files}
             isDisabled={isConverting}
           />

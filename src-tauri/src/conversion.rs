@@ -329,7 +329,10 @@ async fn perform_conversion(
         return Err(anyhow!(error_msg));
     }
 
-    let file_name = output_file.file_name().unwrap_or_default().to_string_lossy();
+    let file_name = output_file
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
     println!("✅ Conversion completed successfully: {file_name} ({file_size} bytes)");
     println!("📁 Output file location: {output_path}");
 
@@ -356,6 +359,21 @@ fn apply_format_settings(cmd: &mut Command, options: &ConversionOptions) -> Resu
         options.output_format
     );
 
+    // Check if custom video settings are provided
+    if let Some(custom) = &options.custom_settings {
+        if let Some(video_settings) = &custom.video {
+            println!("🎬 Using custom video settings: {video_settings:?}");
+            conversion_settings::apply_custom_video_settings(
+                cmd,
+                video_settings,
+                &options.output_format,
+            );
+            println!("✅ Custom video settings applied successfully");
+            return Ok(());
+        }
+    }
+
+    // Fall back to preset-based configuration
     let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
 
     config.apply_to_command(cmd);
@@ -381,10 +399,53 @@ fn apply_image_settings(cmd: &mut Command, options: &ConversionOptions) -> Resul
         options.output_format
     );
 
-    let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
-
     // For images, we need to specify that we want only one frame
     cmd.args(["-vframes", "1"]);
+
+    // Check if custom image settings are provided
+    if let Some(custom) = &options.custom_settings {
+        if let Some(image_settings) = &custom.image {
+            println!("🖼️ Using custom image settings: {image_settings:?}");
+
+            // Apply video codec for the image format
+            let codec = match options.output_format.as_str() {
+                "jpeg" => "mjpeg",
+                "png" => "png",
+                "webp" => "libwebp",
+                "bmp" => "bmp",
+                "tiff" => "tiff",
+                _ => "png",
+            };
+            cmd.args(["-c:v", codec]);
+
+            // Apply custom image settings
+            conversion_settings::apply_custom_image_settings(
+                cmd,
+                image_settings,
+                &options.output_format,
+            );
+
+            // Add format-specific pixel format optimizations
+            let pix_fmt = match options.output_format.as_str() {
+                "jpeg" => Some("yuvj420p"),
+                "png" => Some("rgba"),
+                "webp" => Some("yuva420p"),
+                "bmp" => Some("bgr24"),
+                "tiff" => Some("rgb24"),
+                _ => None,
+            };
+
+            if let Some(fmt) = pix_fmt {
+                cmd.args(["-pix_fmt", fmt]);
+            }
+
+            println!("✅ Custom image settings applied successfully");
+            return Ok(());
+        }
+    }
+
+    // Fall back to preset-based configuration
+    let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
 
     // Apply the format configuration
     config.apply_to_command(cmd);

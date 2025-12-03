@@ -1,13 +1,14 @@
-import { ConversionOptions } from '../types/tauri';
+import { ConversionOptions, CustomQualityOptions } from '../types/tauri';
 import { TauriAPI } from '../utils/tauri';
 import { FileItem } from '../components/FileListItem';
-import { FormatUtils, MediaTypeFormats, MediaTypeQualities } from '../types/supportedFormats';
+import { FormatUtils, MediaTypeFormats, MediaTypeQualities, CustomQualitySettings } from '../types/supportedFormats';
 
 export class ConversionService {
   static async startConversion(
     files: FileItem[],
     formatsByType: MediaTypeFormats,
     qualitiesByType: MediaTypeQualities,
+    customSettings: CustomQualitySettings,
     currentOutputMode: "same_as_input" | "custom_directory",
     customDirectory: string,
     preserveMetadata: boolean,
@@ -43,11 +44,36 @@ export class ConversionService {
         continue;
       }
 
+      // Build custom quality options only when "custom" quality is selected
+      let customQualityOptions: CustomQualityOptions | undefined = undefined;
+      
+      if (selectedQuality === 'custom') {
+        customQualityOptions = {};
+        if (mediaType === 'video') {
+          customQualityOptions.video = {
+            encoder: customSettings.video.encoder,
+            resolution: customSettings.video.resolution,
+            frame_rate: customSettings.video.frameRate,
+            quality: customSettings.video.quality,
+          };
+        } else if (mediaType === 'audio') {
+          customQualityOptions.audio = {
+            bitrate: customSettings.audio.bitrate,
+            sample_rate: customSettings.audio.sampleRate,
+          };
+        } else if (mediaType === 'image') {
+          customQualityOptions.image = {
+            quality: customSettings.image.quality,
+          };
+        }
+      }
+
       const options: ConversionOptions = {
         output_format: selectedFormat,
         quality: selectedQuality,
         output_dir: currentOutputMode === "custom_directory" ? customDirectory || undefined : undefined,
         preserve_metadata: preserveMetadata,
+        custom_settings: customQualityOptions,
       };
 
       try {

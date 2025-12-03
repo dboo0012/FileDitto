@@ -7,11 +7,38 @@ export interface FileMetadata {
   size?: number;
 }
 
+// Video quality settings for custom conversion
+export interface VideoQualityOptions {
+  encoder: string;
+  resolution: string;
+  frame_rate: string;
+  quality: number;
+}
+
+// Audio quality settings for custom conversion
+export interface AudioQualityOptions {
+  bitrate: number;
+  sample_rate: number;
+}
+
+// Image quality settings for custom conversion
+export interface ImageQualityOptions {
+  quality: number;
+}
+
+// Custom quality settings union
+export interface CustomQualityOptions {
+  video?: VideoQualityOptions;
+  audio?: AudioQualityOptions;
+  image?: ImageQualityOptions;
+}
+
 export interface ConversionOptions {
   output_format: string;
   quality: string;
   output_dir?: string;
   preserve_metadata: boolean;
+  custom_settings?: CustomQualityOptions;
 }
 
 export interface ConversionProgress {

@@ -2,7 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import { ConversionProgress, ConversionResult } from "../types/tauri";
 import { TauriAPI } from "../utils/tauri";
 import { FileItem } from "../components/FileListItem";
-import { MediaType, MediaTypeFormats, MediaTypeQualities, QualityLevel } from "../types/supportedFormats";
+import {
+  MediaType,
+  MediaTypeFormats,
+  MediaTypeQualities,
+  QualityLevel,
+  CustomQualitySettings,
+  VideoQualitySettings,
+  AudioQualitySettings,
+  ImageQualitySettings,
+  getDefaultCustomSettings,
+} from "../types/supportedFormats";
 
 interface UseConversionProps {
   updateFilesByConversionId: (
@@ -23,12 +33,15 @@ const DEFAULT_QUALITIES: MediaTypeQualities = {
   image: "medium",
 };
 
+const DEFAULT_CUSTOM_SETTINGS: CustomQualitySettings = getDefaultCustomSettings("medium");
+
 export const useConversion = ({
   updateFilesByConversionId,
 }: UseConversionProps) => {
   // Per-media-type format and quality selection
   const [formatsByType, setFormatsByType] = useState<MediaTypeFormats>(DEFAULT_FORMATS);
   const [qualitiesByType, setQualitiesByType] = useState<MediaTypeQualities>(DEFAULT_QUALITIES);
+  const [customSettings, setCustomSettings] = useState<CustomQualitySettings>(DEFAULT_CUSTOM_SETTINGS);
 
   const setFormatForType = useCallback((mediaType: MediaType, format: string) => {
     setFormatsByType(prev => ({ ...prev, [mediaType]: format }));
@@ -36,6 +49,20 @@ export const useConversion = ({
 
   const setQualityForType = useCallback((mediaType: MediaType, quality: QualityLevel) => {
     setQualitiesByType(prev => ({ ...prev, [mediaType]: quality }));
+    // Custom settings are independent and only used when quality="custom"
+    // No need to update them when switching presets
+  }, []);
+
+  const setVideoSettings = useCallback((settings: VideoQualitySettings) => {
+    setCustomSettings(prev => ({ ...prev, video: settings }));
+  }, []);
+
+  const setAudioSettings = useCallback((settings: AudioQualitySettings) => {
+    setCustomSettings(prev => ({ ...prev, audio: settings }));
+  }, []);
+
+  const setImageSettings = useCallback((settings: ImageQualitySettings) => {
+    setCustomSettings(prev => ({ ...prev, image: settings }));
   }, []);
 
   const getFormatForType = useCallback((mediaType: MediaType): string => {
@@ -89,5 +116,10 @@ export const useConversion = ({
     setQualityForType,
     getFormatForType,
     getQualityForType,
+    // Custom quality settings
+    customSettings,
+    setVideoSettings,
+    setAudioSettings,
+    setImageSettings,
   };
 };
