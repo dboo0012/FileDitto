@@ -4,7 +4,6 @@ import {
   FormatUtils,
   SupportedFormat,
   QualityLevel,
-  SUPPORTED_FORMATS,
   MediaType,
   MediaTypeFormats,
   MediaTypeQualities,

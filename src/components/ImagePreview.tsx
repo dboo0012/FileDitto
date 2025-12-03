@@ -16,18 +16,30 @@ interface ImageLightboxProps {
   onClose: () => void;
 }
 
+const ANIMATION_DURATION = 200; // ms
+
 const ImageLightbox: React.FC<ImageLightboxProps> = ({
   imageSrc,
   fileName,
   onClose,
 }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Handle close with animation
+  const handleClose = useCallback(() => {
+    if (isClosing) return; // Prevent multiple close triggers
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, ANIMATION_DURATION);
+  }, [onClose, isClosing]);
 
   // Handle escape key to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        handleClose();
       }
     };
 
@@ -39,60 +51,91 @@ const ImageLightbox: React.FC<ImageLightboxProps> = ({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, [handleClose]);
 
   // Handle click on backdrop to close
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
-        onClose();
+        handleClose();
       }
     },
-    [onClose]
+    [handleClose]
   );
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+      className={`
+        fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm
+        transition-all duration-200 ease-out
+        ${isClosing ? "bg-black/0" : "bg-black/80"}
+      `}
       onClick={handleBackdropClick}
+      style={{ 
+        animation: isClosing ? "fadeOut 0.2s ease-out forwards" : "fadeIn 0.2s ease-out" 
+      }}
     >
       {/* Close button */}
       <button
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+        onClick={handleClose}
+        className={`
+          absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white 
+          hover:bg-black/70 transition-all duration-200
+          ${isClosing ? "opacity-0 scale-90" : "opacity-100 scale-100"}
+        `}
         title="Close (Esc)"
       >
         <X className="h-6 w-6" />
       </button>
 
       {/* File name */}
-      <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-lg bg-black/50 text-white text-sm font-medium max-w-md truncate">
+      <div 
+        className={`
+          absolute top-4 left-4 z-10 px-3 py-1.5 rounded-lg bg-black/50 
+          text-white text-sm font-medium max-w-md truncate
+          transition-all duration-200
+          ${isClosing ? "opacity-0 -translate-y-2" : "opacity-100 translate-y-0"}
+        `}
+      >
         {fileName}
       </div>
 
       {/* Loading indicator */}
-      {!isLoaded && (
+      {!isLoaded && !isClosing && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-10 h-10 border-4 border-white/30 border-t-white rounded-full animate-spin" />
         </div>
       )}
 
       {/* Image container */}
-      <div className="relative max-w-[90vw] max-h-[90vh] p-4">
+      <div 
+        className={`
+          relative max-w-[90vw] max-h-[90vh] p-4
+          transition-all duration-200 ease-out
+          ${isClosing ? "opacity-0 scale-95" : "opacity-100 scale-100"}
+        `}
+      >
         <img
           src={imageSrc}
           alt={fileName}
           className={`
             max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl
             transition-all duration-300
-            ${isLoaded ? "opacity-100 scale-100" : "opacity-0 scale-95"}
+            ${isLoaded && !isClosing ? "opacity-100 scale-100" : "opacity-0 scale-95"}
           `}
           onLoad={() => setIsLoaded(true)}
         />
       </div>
 
       {/* Instructions */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg bg-black/50 text-white/70 text-xs">
+      <div 
+        className={`
+          absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-lg 
+          bg-black/50 text-white/70 text-xs
+          transition-all duration-200
+          ${isClosing ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}
+        `}
+      >
         Press <kbd className="px-1.5 py-0.5 bg-white/20 rounded text-white">Esc</kbd> or click outside to close
       </div>
     </div>,
