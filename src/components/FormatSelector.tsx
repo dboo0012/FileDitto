@@ -77,6 +77,26 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
     return FormatUtils.getBackendSupportedFormatsByType(activeTab);
   }, [activeTab]);
 
+  // Handle format selection and auto-advance to next unselected media type
+  const handleFormatSelect = (mediaType: MediaType, format: string) => {
+    onFormatSelectForType(mediaType, format);
+    
+    // Only auto-advance if there are multiple media types
+    if (presentMediaTypes.length > 1) {
+      // Find the next media type that doesn't have a format selected
+      const nextUnselected = presentMediaTypes.find(
+        (type) => type !== mediaType && !formatsByType[type]
+      );
+      
+      if (nextUnselected) {
+        // Small delay to let the user see the selection before switching
+        setTimeout(() => {
+          setActiveTab(nextUnselected);
+        }, 150);
+      }
+    }
+  };
+
   const tabs: { id: MediaType; label: string; icon: React.ReactNode }[] = [
     { id: "video", label: "Video", icon: <Video className="w-4 h-4" /> },
     { id: "audio", label: "Audio", icon: <Music className="w-4 h-4" /> },
@@ -85,7 +105,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <label className="text-sm font-medium text-gray-700">
           Select Output Format
         </label>
@@ -95,6 +115,19 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
           </span>
         )}
       </div>
+
+      {/* Contextual Help - shown when formats are not yet selected */}
+      {files.length > 0 && presentMediaTypes.some(type => !formatsByType[type]) && (
+        <div className="mb-4 flex items-start space-x-2 text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-100">
+          <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <p>
+            {presentMediaTypes.length > 1 
+              ? `You have ${presentMediaTypes.length} media types. Select output format for each type using the tabs below.`
+              : "Select a target format from the options below to start configuring your conversion."
+            }
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-4">
@@ -137,7 +170,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
           return (
             <button
               key={format}
-              onClick={() => !isDisabled && onFormatSelectForType(activeTab, format)}
+              onClick={() => !isDisabled && handleFormatSelect(activeTab, format)}
               disabled={isDisabled}
               className={`
                 relative flex flex-col items-start p-3 rounded-xl border-2 transition-all duration-200 text-left group
@@ -200,19 +233,6 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Contextual Help */}
-      {files.length > 0 && presentMediaTypes.some(type => !formatsByType[type]) && (
-        <div className="mt-4 flex items-start space-x-2 text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-100">
-          <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <p>
-            {presentMediaTypes.length > 1 
-              ? `You have ${presentMediaTypes.length} media types. Select output format for each type using the tabs above.`
-              : "Select a target format from the list above to start configuring your conversion."
-            }
-          </p>
         </div>
       )}
     </div>
