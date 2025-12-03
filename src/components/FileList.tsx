@@ -20,6 +20,7 @@ import { FileItem } from "./FileListItem";
 import { TauriAPI } from "../utils/tauri";
 import { FormatUtils, MediaType, MediaTypeFormats } from "../types/supportedFormats";
 import { ImagePreview } from "./ImagePreview";
+import { VideoPreview } from "./VideoPreview";
 
 // Maximum number of files to show per group initially
 const INITIAL_DISPLAY_LIMIT = 20;
@@ -352,7 +353,9 @@ export const FileList: React.FC<FileListProps> = ({
                     {/* Files in this group - hidden when collapsed */}
                     {!isCollapsed && displayedFiles.map((file) => {
                       const isSelected = selectedIds.has(file.id);
-                      const isImage = FormatUtils.detectMediaType(file.name) === "image";
+                      const mediaType = FormatUtils.detectMediaType(file.name);
+                      const isImage = mediaType === "image";
+                      const isVideo = mediaType === "video";
                       const displayFormat = getDisplayOutputFormat(file);
                       
                       return (
@@ -374,6 +377,10 @@ export const FileList: React.FC<FileListProps> = ({
                                 <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md overflow-hidden mr-3 border border-gray-200">
                                   <ImagePreview file={file} className="h-full w-full object-cover" />
                                 </div>
+                              ) : isVideo ? (
+                                <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden mr-3">
+                                  <VideoPreview file={file} className="h-full w-full" />
+                                </div>
                               ) : (
                                 <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center mr-3 border border-gray-200">
                                   {getStatusIcon(file)}
@@ -384,9 +391,9 @@ export const FileList: React.FC<FileListProps> = ({
                                   {file.name}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  {file.type}
-                                  {file.metadata?.dimensions && ` • ${file.metadata.dimensions}`}
-                                  {file.metadata?.duration && ` • ${file.metadata.duration}`}
+                                  {file.metadata?.dimensions}
+                                  {file.metadata?.dimensions && file.metadata?.duration && " • "}
+                                  {file.metadata?.duration}
                                 </div>
                                 {file.status === "error" && file.errorMessage && (
                                    <div className="text-xs text-red-600 truncate max-w-xs mt-0.5">
