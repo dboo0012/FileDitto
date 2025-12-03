@@ -8,6 +8,20 @@ export type MediaType = 'video' | 'audio' | 'image';
 // Quality levels for different formats
 export type QualityLevel = 'high' | 'medium' | 'low' | 'default';
 
+// Per-media-type format selection
+export interface MediaTypeFormats {
+  video: string;
+  audio: string;
+  image: string;
+}
+
+// Per-media-type quality selection
+export interface MediaTypeQualities {
+  video: QualityLevel;
+  audio: QualityLevel;
+  image: QualityLevel;
+}
+
 // Supported format types by category
 export type VideoFormat = 'mp4' | 'webm' | 'avi' | 'mov' | 'mkv' | 'flv' | 'wmv' | '3gp';
 export type AudioFormat = 'mp3' | 'aac' | 'wav' | 'flac' | 'ogg' | 'wma' | 'm4a' | 'opus';

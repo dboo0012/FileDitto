@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Trash2, 
   StopCircle, 
@@ -7,12 +7,22 @@ import {
   AlertCircle, 
   Info, 
   FolderOpen, 
-  X 
+  X,
+  Video,
+  Music,
+  Image as ImageIcon,
+  ChevronDown,
+  ChevronRight,
+  MoreHorizontal,
+  ChevronsUpDown
 } from "lucide-react";
 import { FileItem } from "./FileListItem";
 import { TauriAPI } from "../utils/tauri";
-import { FormatUtils } from "../types/supportedFormats";
+import { FormatUtils, MediaType, MediaTypeFormats } from "../types/supportedFormats";
 import { ImagePreview } from "./ImagePreview";
+
+// Maximum number of files to show per group initially
+const INITIAL_DISPLAY_LIMIT = 20;
 
 interface FileListProps {
   files: FileItem[];
@@ -23,6 +33,13 @@ interface FileListProps {
   onCancelAll: () => Promise<void> | void;
   onClearAll: () => Promise<void> | void;
   onOpenFolder?: (filePath: string) => void;
+  formatsByType?: MediaTypeFormats;
+}
+
+interface GroupedFiles {
+  video: FileItem[];
+  audio: FileItem[];
+  image: FileItem[];
 }
 
 export const FileList: React.FC<FileListProps> = ({
@@ -34,9 +51,84 @@ export const FileList: React.FC<FileListProps> = ({
   onCancelAll,
   onClearAll,
   onOpenFolder,
+  formatsByType,
 }) => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<MediaType>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<MediaType>>(new Set());
   const formatFileSize = TauriAPI.formatFileSize;
+
+  // Toggle collapse state for a media type group
+  const toggleGroupCollapse = (mediaType: MediaType) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(mediaType)) {
+        next.delete(mediaType);
+      } else {
+        next.add(mediaType);
+      }
+      return next;
+    });
+  };
+
+  // Toggle showing all files in a group
+  const toggleShowAllFiles = (mediaType: MediaType, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering collapse
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(mediaType)) {
+        next.delete(mediaType);
+      } else {
+        next.add(mediaType);
+      }
+      return next;
+    });
+  };
+
+  // Group files by media type
+  const groupedFiles = useMemo((): GroupedFiles => {
+    const groups: GroupedFiles = { video: [], audio: [], image: [] };
+    files.forEach(file => {
+      const mediaType = FormatUtils.detectMediaType(file.name);
+      if (mediaType && groups[mediaType]) {
+        groups[mediaType].push(file);
+      }
+    });
+    return groups;
+  }, [files]);
+
+  // Get ordered list of media types that have files
+  const presentMediaTypes = useMemo((): MediaType[] => {
+    const types: MediaType[] = [];
+    if (groupedFiles.video.length > 0) types.push("video");
+    if (groupedFiles.audio.length > 0) types.push("audio");
+    if (groupedFiles.image.length > 0) types.push("image");
+    return types;
+  }, [groupedFiles]);
+
+  // Get icon for media type
+  const getMediaTypeIcon = (mediaType: MediaType) => {
+    switch (mediaType) {
+      case "video": return <Video className="h-4 w-4" />;
+      case "audio": return <Music className="h-4 w-4" />;
+      case "image": return <ImageIcon className="h-4 w-4" />;
+    }
+  };
+
+  // Get the output format to display for a file
+  const getDisplayOutputFormat = (file: FileItem): string | undefined => {
+    // If file already has outputFormat set (e.g., during/after conversion), use that
+    if (file.outputFormat) return file.outputFormat;
+    
+    // Otherwise, show the currently selected format for this file's media type
+    if (formatsByType) {
+      const mediaType = FormatUtils.detectMediaType(file.name);
+      if (mediaType) {
+        return formatsByType[mediaType] || undefined;
+      }
+    }
+    return undefined;
+  };
 
   // Reset selection when files change (optional, or keep selection if file still exists)
   useEffect(() => {
@@ -159,10 +251,18 @@ export const FileList: React.FC<FileListProps> = ({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-gray-200 table-fixed">
+          <colgroup>
+            <col className="w-12" />
+            <col />
+            <col className="w-24" />
+            <col className="w-28" />
+            <col className="w-28" />
+            <col className="w-24" />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -173,16 +273,16 @@ export const FileList: React.FC<FileListProps> = ({
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 File
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Size
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Format
               </th>
-              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th scope="col" className="relative px-4 py-3 w-20">
+              <th scope="col" className="relative px-4 py-3">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -198,115 +298,199 @@ export const FileList: React.FC<FileListProps> = ({
                 </td>
               </tr>
             ) : (
-              files.map((file) => {
-                const isSelected = selectedIds.has(file.id);
-                const isImage = FormatUtils.detectMediaType(file.name) === "image";
+              presentMediaTypes.map((mediaType) => {
+                const groupFiles = groupedFiles[mediaType];
+                const selectedFormat = formatsByType?.[mediaType];
+                const isCollapsed = collapsedGroups.has(mediaType);
+                const isExpanded = expandedGroups.has(mediaType);
+                const hasMoreFiles = groupFiles.length > INITIAL_DISPLAY_LIMIT;
+                const displayedFiles = isExpanded ? groupFiles : groupFiles.slice(0, INITIAL_DISPLAY_LIMIT);
+                const hiddenCount = groupFiles.length - INITIAL_DISPLAY_LIMIT;
                 
                 return (
-                  <tr 
-                    key={file.id} 
-                    className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
-                  >
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        checked={isSelected}
-                        onChange={(e) => handleSelectOne(file.id, e.target.checked)}
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center">
-                        {isImage ? (
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md overflow-hidden mr-3 border border-gray-200">
-                            <ImagePreview file={file} className="h-full w-full object-cover" />
+                  <React.Fragment key={mediaType}>
+                    {/* Media type separator header - collapsible */}
+                    {presentMediaTypes.length > 1 && (
+                      <tr 
+                        className="bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => toggleGroupCollapse(mediaType)}
+                      >
+                        <td colSpan={6} className="px-4 py-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-400">
+                                {isCollapsed ? (
+                                  <ChevronRight className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </span>
+                              <span className="text-gray-500">
+                                {getMediaTypeIcon(mediaType)}
+                              </span>
+                              <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                {mediaType} Files ({groupFiles.length})
+                              </span>
+                              {hasMoreFiles && !isCollapsed && (
+                                <span className="text-xs text-gray-400">
+                                  {isExpanded ? '(showing all)' : `(showing ${INITIAL_DISPLAY_LIMIT})`}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {selectedFormat && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                  → {selectedFormat.toUpperCase()}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center mr-3 border border-gray-200">
-                            {getStatusIcon(file)}
-                          </div>
-                        )}
-                        <div className="min-w-0 overflow-hidden">
-                          <div className="text-sm font-medium text-gray-900 truncate max-w-[200px] sm:max-w-[300px]" title={file.name}>
-                            {file.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {file.type}
-                            {file.metadata?.dimensions && ` • ${file.metadata.dimensions}`}
-                            {file.metadata?.duration && ` • ${file.metadata.duration}`}
-                          </div>
-                          {file.status === "error" && file.errorMessage && (
-                             <div className="text-xs text-red-600 truncate max-w-xs mt-0.5">
-                               {file.errorMessage}
-                             </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {formatFileSize(file.size)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                      {file.outputFormat ? (
-                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                           {file.outputFormat.toUpperCase()}
-                         </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                         ${file.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                           file.status === 'error' ? 'bg-red-100 text-red-800' : 
-                           file.status === 'converting' ? 'bg-blue-100 text-blue-800' : 
-                           file.status === 'cancelled' ? 'bg-orange-100 text-orange-800' : 
-                           'bg-gray-100 text-gray-800'}`}>
-                         {getStatusText(file)}
-                       </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-2">
-                        {onShowMetadata && (
-                          <button
-                            onClick={() => onShowMetadata(file)}
-                            className="text-gray-400 hover:text-blue-600 transition-colors"
-                            title="Info"
-                          >
-                            <Info className="h-4 w-4" />
-                          </button>
-                        )}
-                        
-                        {file.status === "completed" && onOpenFolder && (
-                          <button
-                            onClick={() => onOpenFolder(file.outputPath || file.path)}
-                            className="text-gray-400 hover:text-blue-600 transition-colors"
-                            title="Open Folder"
-                          >
-                            <FolderOpen className="h-4 w-4" />
-                          </button>
-                        )}
+                        </td>
+                      </tr>
+                    )}
+                    
+                    {/* Files in this group - hidden when collapsed */}
+                    {!isCollapsed && displayedFiles.map((file) => {
+                      const isSelected = selectedIds.has(file.id);
+                      const isImage = FormatUtils.detectMediaType(file.name) === "image";
+                      const displayFormat = getDisplayOutputFormat(file);
+                      
+                      return (
+                        <tr 
+                          key={file.id} 
+                          className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}
+                        >
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={isSelected}
+                              onChange={(e) => handleSelectOne(file.id, e.target.checked)}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center">
+                              {isImage ? (
+                                <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md overflow-hidden mr-3 border border-gray-200">
+                                  <ImagePreview file={file} className="h-full w-full object-cover" />
+                                </div>
+                              ) : (
+                                <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center mr-3 border border-gray-200">
+                                  {getStatusIcon(file)}
+                                </div>
+                              )}
+                              <div className="min-w-0 overflow-hidden">
+                                <div className="text-sm font-medium text-gray-900 truncate max-w-[200px] sm:max-w-[300px]" title={file.name}>
+                                  {file.name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {file.type}
+                                  {file.metadata?.dimensions && ` • ${file.metadata.dimensions}`}
+                                  {file.metadata?.duration && ` • ${file.metadata.duration}`}
+                                </div>
+                                {file.status === "error" && file.errorMessage && (
+                                   <div className="text-xs text-red-600 truncate max-w-xs mt-0.5">
+                                     {file.errorMessage}
+                                   </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {formatFileSize(file.size)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {displayFormat ? (
+                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                 ${file.outputFormat 
+                                   ? 'bg-blue-100 text-blue-800' 
+                                   : 'bg-gray-100 text-gray-600 border border-dashed border-gray-300'
+                                 }`}>
+                                 {displayFormat.toUpperCase()}
+                               </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs italic">Select format</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                               ${file.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                 file.status === 'error' ? 'bg-red-100 text-red-800' : 
+                                 file.status === 'converting' ? 'bg-blue-100 text-blue-800' : 
+                                 file.status === 'cancelled' ? 'bg-orange-100 text-orange-800' : 
+                                 'bg-gray-100 text-gray-800'}`}>
+                               {getStatusText(file)}
+                             </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center justify-end space-x-2">
+                              {onShowMetadata && (
+                                <button
+                                  onClick={() => onShowMetadata(file)}
+                                  className="text-gray-400 hover:text-blue-600 transition-colors"
+                                  title="Info"
+                                >
+                                  <Info className="h-4 w-4" />
+                                </button>
+                              )}
+                              
+                              {file.status === "completed" && onOpenFolder && (
+                                <button
+                                  onClick={() => onOpenFolder(file.outputPath || file.path)}
+                                  className="text-gray-400 hover:text-blue-600 transition-colors"
+                                  title="Open Folder"
+                                >
+                                  <FolderOpen className="h-4 w-4" />
+                                </button>
+                              )}
 
-                        {file.status === "converting" && file.conversionId && onCancel ? (
+                              {file.status === "converting" && file.conversionId && onCancel ? (
+                                <button
+                                  onClick={() => onCancel(file.conversionId!)}
+                                  className="text-orange-400 hover:text-orange-600 transition-colors"
+                                  title="Cancel"
+                                >
+                                  <StopCircle className="h-4 w-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => onRemove(file.id)}
+                                  className="text-gray-400 hover:text-red-600 transition-colors"
+                                  title="Remove"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    
+                    {/* Show more/less button when there are more files than the limit */}
+                    {!isCollapsed && hasMoreFiles && (
+                      <tr className="bg-gray-50/50">
+                        <td colSpan={6} className="px-4 py-2">
                           <button
-                            onClick={() => onCancel(file.conversionId!)}
-                            className="text-orange-400 hover:text-orange-600 transition-colors"
-                            title="Cancel"
+                            onClick={(e) => toggleShowAllFiles(mediaType, e)}
+                            className="w-full flex items-center justify-center gap-2 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors"
                           >
-                            <StopCircle className="h-4 w-4" />
+                            {isExpanded ? (
+                              <>
+                                <ChevronsUpDown className="h-3.5 w-3.5" />
+                                Show less (hide {hiddenCount} files)
+                              </>
+                            ) : (
+                              <>
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                Show {hiddenCount} more files
+                              </>
+                            )}
                           </button>
-                        ) : (
-                          <button
-                            onClick={() => onRemove(file.id)}
-                            className="text-gray-400 hover:text-red-600 transition-colors"
-                            title="Remove"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })
             )}

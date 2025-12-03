@@ -1,29 +1,54 @@
 import { ConversionOptions } from '../types/tauri';
 import { TauriAPI } from '../utils/tauri';
 import { FileItem } from '../components/FileListItem';
+import { FormatUtils, MediaTypeFormats, MediaTypeQualities } from '../types/supportedFormats';
 
 export class ConversionService {
   static async startConversion(
     files: FileItem[],
-    selectedFormat: string,
-    selectedQuality: string,
+    formatsByType: MediaTypeFormats,
+    qualitiesByType: MediaTypeQualities,
     currentOutputMode: "same_as_input" | "custom_directory",
     customDirectory: string,
     preserveMetadata: boolean,
     updateFileStatus: (fileId: string, updates: Partial<FileItem>) => void
   ) {
-    if (files.length === 0 || !selectedFormat) return;
-
-    const options: ConversionOptions = {
-      output_format: selectedFormat,
-      quality: selectedQuality,
-      output_dir: currentOutputMode === "custom_directory" ? customDirectory || undefined : undefined,
-      preserve_metadata: preserveMetadata,
-    };
+    if (files.length === 0) return;
 
     // Start conversion for each file (include pending, error, and completed files for retry)
     for (const file of files) {
       if (file.status === "converting") continue; // Skip files currently being converted
+
+      // Determine the media type for this file
+      const mediaType = FormatUtils.detectMediaType(file.name);
+      if (!mediaType) {
+        console.warn(`Could not detect media type for ${file.name}, skipping`);
+        updateFileStatus(file.id, {
+          status: "error",
+          errorMessage: "Could not detect file type",
+        });
+        continue;
+      }
+
+      // Get the format and quality for this media type
+      const selectedFormat = formatsByType[mediaType];
+      const selectedQuality = qualitiesByType[mediaType];
+
+      if (!selectedFormat) {
+        console.warn(`No format selected for ${mediaType} type, skipping ${file.name}`);
+        updateFileStatus(file.id, {
+          status: "error",
+          errorMessage: `No output format selected for ${mediaType} files`,
+        });
+        continue;
+      }
+
+      const options: ConversionOptions = {
+        output_format: selectedFormat,
+        quality: selectedQuality,
+        output_dir: currentOutputMode === "custom_directory" ? customDirectory || undefined : undefined,
+        preserve_metadata: preserveMetadata,
+      };
 
       try {
         const outputPath =

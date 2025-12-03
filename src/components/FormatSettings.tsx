@@ -1,18 +1,21 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { FileItem } from "./FileListItem";
 import {
   FormatUtils,
   SupportedFormat,
   QualityLevel,
   SUPPORTED_FORMATS,
+  MediaType,
+  MediaTypeFormats,
+  MediaTypeQualities,
 } from "../types/supportedFormats";
 import { FormatSelector } from "./FormatSelector";
 
 interface FormatSettingsProps {
-  selectedFormat: string;
-  setSelectedFormat: (format: string) => void;
-  selectedQuality: string;
-  setSelectedQuality: (quality: string) => void;
+  formatsByType: MediaTypeFormats;
+  qualitiesByType: MediaTypeQualities;
+  setFormatForType: (mediaType: MediaType, format: string) => void;
+  setQualityForType: (mediaType: MediaType, quality: QualityLevel) => void;
   preserveMetadata: boolean;
   onStartConversion: () => void;
   onResetFiles: () => void;
@@ -21,16 +24,18 @@ interface FormatSettingsProps {
 }
 
 export const FormatSettings: React.FC<FormatSettingsProps> = ({
-  selectedFormat,
-  setSelectedFormat,
-  selectedQuality,
-  setSelectedQuality,
+  formatsByType,
+  qualitiesByType,
+  setFormatForType,
+  setQualityForType,
   preserveMetadata,
   onStartConversion,
   onResetFiles,
   files,
   ffmpegAvailable,
 }) => {
+  // Track which media type's quality settings to display
+  const [activeQualityType, setActiveQualityType] = useState<MediaType>("video");
   const hasRetryableFiles = files.some(
     (f) => f.status === "error" || f.status === "completed"
   );
@@ -38,24 +43,50 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
   // Check if any files are currently converting
   const isConverting = files.some((f) => f.status === "converting");
 
-  // Get available quality levels for selected format
+  // Determine which media types are present in files
+  const presentMediaTypes = useMemo((): MediaType[] => {
+    const types = new Set<MediaType>();
+    files.forEach(file => {
+      const mediaType = FormatUtils.detectMediaType(file.name);
+      if (mediaType) types.add(mediaType);
+    });
+    return Array.from(types);
+  }, [files]);
+
+  // Set active quality type to first present media type if current is not present
+  useEffect(() => {
+    if (presentMediaTypes.length > 0 && !presentMediaTypes.includes(activeQualityType)) {
+      setActiveQualityType(presentMediaTypes[0]);
+    }
+  }, [presentMediaTypes, activeQualityType]);
+
+  // Get current format and quality for active type
+  const currentFormat = formatsByType[activeQualityType];
+  const currentQuality = qualitiesByType[activeQualityType];
+
+  // Get available quality levels for the active type's selected format
   const availableQualities = useMemo(() => {
-    if (!selectedFormat) return ["high", "medium", "low"] as QualityLevel[];
-    return FormatUtils.getAvailableQualities(selectedFormat as SupportedFormat);
-  }, [selectedFormat]);
+    if (!currentFormat) return ["high", "medium", "low"] as QualityLevel[];
+    return FormatUtils.getAvailableQualities(currentFormat as SupportedFormat);
+  }, [currentFormat]);
 
   // Update quality when format changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (
-      selectedFormat &&
-      !availableQualities.includes(selectedQuality as QualityLevel)
+      currentFormat &&
+      !availableQualities.includes(currentQuality)
     ) {
       const defaultQuality = FormatUtils.getDefaultQuality(
-        selectedFormat as SupportedFormat
+        currentFormat as SupportedFormat
       );
-      setSelectedQuality(defaultQuality);
+      setQualityForType(activeQualityType, defaultQuality);
     }
-  }, [selectedFormat, availableQualities, selectedQuality, setSelectedQuality]);
+  }, [currentFormat, availableQualities, currentQuality, setQualityForType, activeQualityType]);
+
+  // Check if all present media types have a format selected
+  const allFormatsSelected = useMemo(() => {
+    return presentMediaTypes.every(type => formatsByType[type]);
+  }, [presentMediaTypes, formatsByType]);
 
   const getQualityDescription = (quality: string): string => {
     switch (quality) {
@@ -81,17 +112,41 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
       <div className="space-y-6">
         
         <FormatSelector
-          selectedFormat={selectedFormat}
-          onFormatSelect={setSelectedFormat}
+          formatsByType={formatsByType}
+          onFormatSelectForType={setFormatForType}
           files={files}
           isDisabled={isConverting}
         />
 
-        {selectedFormat && (
+        {currentFormat && presentMediaTypes.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Quality Preference
-            </label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Quality Preference
+              </label>
+              {presentMediaTypes.length > 1 && (
+                <div className="flex gap-1">
+                  {presentMediaTypes.map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setActiveQualityType(type)}
+                      disabled={!formatsByType[type]}
+                      className={`
+                        px-2 py-1 text-xs rounded capitalize transition-colors
+                        ${activeQualityType === type 
+                          ? 'bg-blue-100 text-blue-700 font-medium' 
+                          : formatsByType[type]
+                            ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            : 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                        }
+                      `}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="space-y-2">
               {availableQualities.map((quality) => (
                 <label
@@ -99,7 +154,7 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
                   className={`
                     flex items-center p-3 rounded-lg border transition-colors cursor-pointer
                     ${
-                      selectedQuality === quality
+                      currentQuality === quality
                         ? "bg-blue-50 border-blue-200 text-blue-900"
                         : "bg-white border-gray-200 hover:bg-gray-50"
                     }
@@ -110,8 +165,8 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
                     type="radio"
                     name="quality"
                     value={quality}
-                    checked={selectedQuality === quality}
-                    onChange={(e) => !isConverting && setSelectedQuality(e.target.value)}
+                    checked={currentQuality === quality}
+                    onChange={(e) => !isConverting && setQualityForType(activeQualityType, e.target.value as QualityLevel)}
                     disabled={isConverting}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                   />
@@ -144,7 +199,7 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
               onClick={onStartConversion}
               disabled={
                 files.length === 0 ||
-                !selectedFormat ||
+                !allFormatsSelected ||
                 !ffmpegAvailable ||
                 isConverting
               }

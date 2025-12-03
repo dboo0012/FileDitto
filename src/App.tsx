@@ -35,10 +35,10 @@ function App() {
   } = useFiles();
 
   const {
-    selectedFormat,
-    setSelectedFormat,
-    selectedQuality,
-    setSelectedQuality,
+    formatsByType,
+    qualitiesByType,
+    setFormatForType,
+    setQualityForType,
   } = useConversion({ updateFilesByConversionId });
 
   const {
@@ -101,8 +101,8 @@ function App() {
   const startConversion = async () => {
     await ConversionService.startConversion(
       files,
-      selectedFormat,
-      selectedQuality,
+      formatsByType,
+      qualitiesByType,
       currentOutputMode,
       customDirectory,
       userSettings.preserve_metadata,
@@ -190,6 +190,7 @@ function App() {
                     onCancelAll={cancelAllConversions}
                     onClearAll={() => clearAllFiles(cancelConversion)}
                     onOpenFolder={openOutputFolder}
+                    formatsByType={formatsByType}
                   />
                </div>
             </div>
@@ -212,10 +213,10 @@ function App() {
             <div className="sticky top-6 space-y-6">
               <ConversionPanel
                 files={files}
-                selectedFormat={selectedFormat}
-                setSelectedFormat={setSelectedFormat}
-                selectedQuality={selectedQuality}
-                setSelectedQuality={setSelectedQuality}
+                formatsByType={formatsByType}
+                qualitiesByType={qualitiesByType}
+                setFormatForType={setFormatForType}
+                setQualityForType={setQualityForType}
                 onOpenOutputFolder={openOutputFolder}
                 onStartConversion={startConversion}
                 onResetFiles={resetFilesForRetry}

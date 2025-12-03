@@ -12,46 +12,54 @@ import {
   SupportedFormat,
   SUPPORTED_FORMATS,
   MediaType,
+  MediaTypeFormats,
 } from "../types/supportedFormats";
 
 interface FormatSelectorProps {
-  selectedFormat: string;
-  onFormatSelect: (format: string) => void;
+  formatsByType: MediaTypeFormats;
+  onFormatSelectForType: (mediaType: MediaType, format: string) => void;
   files: FileItem[];
   isDisabled?: boolean;
 }
 
 export const FormatSelector: React.FC<FormatSelectorProps> = ({
-  selectedFormat,
-  onFormatSelect,
+  formatsByType,
+  onFormatSelectForType,
   files,
   isDisabled = false,
 }) => {
   const [activeTab, setActiveTab] = useState<MediaType>("video");
 
-  // Determine enabled tabs based on uploaded files
+  // Determine enabled tabs based on uploaded files - only enable tabs for media types in files
   const enabledTabs = useMemo(() => {
     if (files.length === 0) {
-      return { video: true, audio: true, image: true };
+      return { video: false, audio: false, image: false };
     }
 
     const uploadedTypes = new Set(
       files.map((f) => FormatUtils.detectMediaType(f.name)).filter(Boolean)
     );
 
-    // Simple rule: Enable tab if ANY uploaded file matches the type
-    // Or if specific cross-conversions are allowed (currently FormatUtils is strict)
+    // Only enable tab if uploaded files include that media type
     return {
       video: uploadedTypes.has("video"),
-      // Usually video can be converted to audio (extract audio)
-      audio: uploadedTypes.has("audio") || uploadedTypes.has("video"), 
+      audio: uploadedTypes.has("audio"), 
       image: uploadedTypes.has("image"),
     };
   }, [files]);
 
-  // Auto-switch tab if current one becomes disabled
+  // Get the list of media types present in files
+  const presentMediaTypes = useMemo((): MediaType[] => {
+    const types: MediaType[] = [];
+    if (enabledTabs.video) types.push("video");
+    if (enabledTabs.audio) types.push("audio");
+    if (enabledTabs.image) types.push("image");
+    return types;
+  }, [enabledTabs]);
+
+  // Auto-switch tab to first enabled tab when files change
   useEffect(() => {
-    if (!enabledTabs[activeTab] && files.length > 0) {
+    if (files.length > 0 && !enabledTabs[activeTab]) {
       // Find first enabled tab
       const firstEnabled = (["video", "audio", "image"] as MediaType[]).find(
         (t) => enabledTabs[t]
@@ -61,6 +69,9 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
       }
     }
   }, [enabledTabs, activeTab, files.length]);
+
+  // Get current selected format for active tab
+  const selectedFormat = formatsByType[activeTab];
 
   const formats = useMemo(() => {
     return FormatUtils.getBackendSupportedFormatsByType(activeTab);
@@ -126,7 +137,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
           return (
             <button
               key={format}
-              onClick={() => !isDisabled && onFormatSelect(format)}
+              onClick={() => !isDisabled && onFormatSelectForType(activeTab, format)}
               disabled={isDisabled}
               className={`
                 relative flex flex-col items-start p-3 rounded-xl border transition-all duration-200 text-left group
@@ -161,12 +172,46 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
         })}
       </div>
 
+      {/* Show selected formats summary for all media types */}
+      {presentMediaTypes.length > 1 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {presentMediaTypes.map((type) => {
+            const format = formatsByType[type];
+            const icon = type === "video" ? <Video className="w-3 h-3" /> : 
+                        type === "audio" ? <Music className="w-3 h-3" /> : 
+                        <ImageIcon className="w-3 h-3" />;
+            return (
+              <div 
+                key={type}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer
+                  ${activeTab === type 
+                    ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300' 
+                    : format 
+                      ? 'bg-green-50 text-green-700 hover:bg-green-100' 
+                      : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                  }`}
+                onClick={() => !isDisabled && setActiveTab(type)}
+              >
+                {icon}
+                <span className="capitalize">{type}:</span>
+                <span className={format ? 'font-bold uppercase' : 'italic'}>
+                  {format || 'Not set'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Contextual Help */}
-      {files.length > 0 && !selectedFormat && (
+      {files.length > 0 && presentMediaTypes.some(type => !formatsByType[type]) && (
         <div className="mt-4 flex items-start space-x-2 text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-100">
           <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <p>
-            Select a target format from the list above to start configuring your conversion.
+            {presentMediaTypes.length > 1 
+              ? `You have ${presentMediaTypes.length} media types. Select output format for each type using the tabs above.`
+              : "Select a target format from the list above to start configuring your conversion."
+            }
           </p>
         </div>
       )}

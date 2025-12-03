@@ -1,13 +1,14 @@
 import { ConversionSummary } from "./ConversionSummary";
 import { FormatSettings } from "./FormatSettings";
 import { FileItem } from "./FileListItem";
+import { MediaType, MediaTypeFormats, MediaTypeQualities, QualityLevel } from "../types/supportedFormats";
 
 interface ConversionPanelProps {
   files: FileItem[];
-  selectedFormat: string;
-  setSelectedFormat: (format: string) => void;
-  selectedQuality: string;
-  setSelectedQuality: (quality: string) => void;
+  formatsByType: MediaTypeFormats;
+  qualitiesByType: MediaTypeQualities;
+  setFormatForType: (mediaType: MediaType, format: string) => void;
+  setQualityForType: (mediaType: MediaType, quality: QualityLevel) => void;
   onOpenOutputFolder?: (path?: string) => void;
   onStartConversion: () => void;
   onResetFiles: () => void;
@@ -17,10 +18,10 @@ interface ConversionPanelProps {
 
 export const ConversionPanel = ({
   files,
-  selectedFormat,
-  setSelectedFormat,
-  selectedQuality,
-  setSelectedQuality,
+  formatsByType,
+  qualitiesByType,
+  setFormatForType,
+  setQualityForType,
   onOpenOutputFolder,
   onStartConversion,
   onResetFiles,
@@ -35,10 +36,10 @@ export const ConversionPanel = ({
       />
 
       <FormatSettings
-        selectedFormat={selectedFormat}
-        setSelectedFormat={setSelectedFormat}
-        selectedQuality={selectedQuality}
-        setSelectedQuality={setSelectedQuality}
+        formatsByType={formatsByType}
+        qualitiesByType={qualitiesByType}
+        setFormatForType={setFormatForType}
+        setQualityForType={setQualityForType}
         preserveMetadata={preserveMetadata}
         onStartConversion={onStartConversion}
         onResetFiles={onResetFiles}
