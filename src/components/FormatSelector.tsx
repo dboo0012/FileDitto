@@ -1,4 +1,11 @@
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { 
+  Video, 
+  Music, 
+  Image as ImageIcon, 
+  Check,
+  Info
+} from "lucide-react";
 import { FileItem } from "./FileListItem";
 import {
   FormatUtils,
@@ -20,132 +27,147 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
   files,
   isDisabled = false,
 }) => {
-  // Get available formats grouped by media type
-  const getAvailableFormats = (): Record<string, SupportedFormat[]> => {
+  const [activeTab, setActiveTab] = useState<MediaType>("video");
+
+  // Determine enabled tabs based on uploaded files
+  const enabledTabs = useMemo(() => {
     if (files.length === 0) {
-      // Show all backend supported formats when no files are uploaded
-      const allFormats = FormatUtils.getFormatsGroupedByType();
-      // Convert keys to title case for consistency
-      const formatted: Record<string, SupportedFormat[]> = {};
-      Object.entries(allFormats).forEach(([type, formats]) => {
-        const typeKey = type.charAt(0).toUpperCase() + type.slice(1);
-        formatted[typeKey] = formats;
-      });
-      return formatted;
+      return { video: true, audio: true, image: true };
     }
 
-    // Only show formats compatible with uploaded file types
-    const detectedTypes = new Set<MediaType>();
-    files.forEach((file) => {
-      const mediaType = FormatUtils.detectMediaType(file.name, file.type);
-      if (mediaType) {
-        detectedTypes.add(mediaType);
+    const uploadedTypes = new Set(
+      files.map((f) => FormatUtils.detectMediaType(f.name)).filter(Boolean)
+    );
+
+    // Simple rule: Enable tab if ANY uploaded file matches the type
+    // Or if specific cross-conversions are allowed (currently FormatUtils is strict)
+    return {
+      video: uploadedTypes.has("video"),
+      // Usually video can be converted to audio (extract audio)
+      audio: uploadedTypes.has("audio") || uploadedTypes.has("video"), 
+      image: uploadedTypes.has("image"),
+    };
+  }, [files]);
+
+  // Auto-switch tab if current one becomes disabled
+  useEffect(() => {
+    if (!enabledTabs[activeTab] && files.length > 0) {
+      // Find first enabled tab
+      const firstEnabled = (["video", "audio", "image"] as MediaType[]).find(
+        (t) => enabledTabs[t]
+      );
+      if (firstEnabled) {
+        setActiveTab(firstEnabled);
       }
-    });
+    }
+  }, [enabledTabs, activeTab, files.length]);
 
-    const grouped: Record<string, SupportedFormat[]> = {};
-    detectedTypes.forEach((type) => {
-      const typeKey = type.charAt(0).toUpperCase() + type.slice(1);
-      grouped[typeKey] = FormatUtils.getBackendSupportedFormatsByType(type);
-    });
+  const formats = useMemo(() => {
+    return FormatUtils.getBackendSupportedFormatsByType(activeTab);
+  }, [activeTab]);
 
-    return grouped;
-  };
-
-  // Check if a format is compatible with uploaded files
-  const isFormatCompatible = (format: SupportedFormat): boolean => {
-    if (files.length === 0) return true;
-
-    return files.some((file) => {
-      const extension = file.name.split(".").pop()?.toLowerCase();
-      if (!extension) return false;
-
-      return FormatUtils.isConversionSupported(extension, format);
-    });
-  };
-
-  const availableFormats = getAvailableFormats();
-
-  // Render format selection buttons grouped by media type
-  const renderFormatButtons = () => {
-    const sections: JSX.Element[] = [];
-
-    Object.entries(availableFormats).forEach(([mediaType, formats]) => {
-      if (formats.length > 0) {
-        sections.push(
-          <div key={mediaType} className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700 capitalize">
-              {mediaType} Formats
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {formats.map((format) => {
-                const formatInfo = SUPPORTED_FORMATS[format];
-                const isCompatible = isFormatCompatible(format);
-                const isSelected = selectedFormat === format;
-                return (
-                  <button
-                    key={format}
-                    onClick={() => !isDisabled && isCompatible && onFormatSelect(format)}
-                    disabled={!isCompatible || isDisabled}
-                    className={`
-                      p-3 text-left rounded-lg border transition-all duration-200 text-sm
-                      ${isSelected
-                        ? "bg-blue-50 border-blue-200 text-blue-900 ring-2 ring-blue-200"
-                        : isCompatible && !isDisabled
-                        ? "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
-                        : "bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed"
-                      }
-                    `}
-                  >
-                    <div>
-                      <div className="font-medium">{formatInfo.name}</div>
-                      <div className="text-xs opacity-75">
-                        .{format.toUpperCase()}
-                      </div>
-                    </div>
-                    {!isCompatible && (
-                      <div className="text-xs text-red-500 mt-1">
-                        Not compatible
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      }
-    });
-
-    return sections;
-  };
+  const tabs: { id: MediaType; label: string; icon: React.ReactNode }[] = [
+    { id: "video", label: "Video", icon: <Video className="w-4 h-4" /> },
+    { id: "audio", label: "Audio", icon: <Music className="w-4 h-4" /> },
+    { id: "image", label: "Image", icon: <ImageIcon className="w-4 h-4" /> },
+  ];
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <label className="text-sm font-medium text-gray-700">
           Select Output Format
         </label>
         {isDisabled && (
-          <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
-            Converting... formats disabled
-          </div>
+          <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100">
+            Selection disabled during conversion
+          </span>
         )}
       </div>
 
-      {files.length > 0 && (
-        <div className="mb-3 text-xs text-gray-500">
-          Showing formats compatible with your uploaded files
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-4">
+        {tabs.map((tab) => {
+          const isTabEnabled = enabledTabs[tab.id];
+          
+          return (
+            <button
+              key={tab.id}
+              onClick={() => !isDisabled && isTabEnabled && setActiveTab(tab.id)}
+              disabled={isDisabled || !isTabEnabled}
+              className={`
+                flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all
+                ${
+                  activeTab === tab.id
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : isTabEnabled
+                    ? "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+                    : "text-gray-300 cursor-not-allowed bg-gray-50/50"
+                }
+              `}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-      <div className="space-y-4">{renderFormatButtons()}</div>
+      {/* Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+        {formats.map((format) => {
+          const info = SUPPORTED_FORMATS[format];
+          const selected = selectedFormat === format;
+          
+          // If we are in an active tab, we assume all formats in that tab are "valid" options
+          // for the user to select, even if some specific files might not support it.
+          // The tab filtering logic protects the user from major incompatibilities.
+          
+          return (
+            <button
+              key={format}
+              onClick={() => !isDisabled && onFormatSelect(format)}
+              disabled={isDisabled}
+              className={`
+                relative flex flex-col items-start p-3 rounded-xl border transition-all duration-200 text-left group
+                ${
+                  selected
+                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                    : !isDisabled
+                    ? "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+                    : "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed"
+                }
+              `}
+            >
+              <div className="flex items-center justify-between w-full mb-2">
+                <span className={`
+                  text-xs font-bold uppercase px-1.5 py-0.5 rounded 
+                  ${selected ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}
+                `}>
+                  {info.extension}
+                </span>
+                {selected && <Check className="w-4 h-4 text-blue-600" />}
+              </div>
+              
+              <span className={`font-medium text-sm mb-0.5 ${selected ? "text-blue-900" : "text-gray-900"}`}>
+                {info.name}
+              </span>
+              
+              <span className="text--[10px] text-gray-500 line-clamp-2 leading-tight">
+                {info.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {!selectedFormat && files.length > 0 && (
-        <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-sm text-blue-800">
-            💡 Click on a format above to select it for conversion
-          </div>
+      {/* Contextual Help */}
+      {files.length > 0 && !selectedFormat && (
+        <div className="mt-4 flex items-start space-x-2 text-sm text-blue-700 bg-blue-50 p-3 rounded-lg border border-blue-100">
+          <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <p>
+            Select a target format from the list above to start configuring your conversion.
+          </p>
         </div>
       )}
     </div>

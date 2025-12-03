@@ -7,8 +7,6 @@ import {
   SUPPORTED_FORMATS,
 } from "../types/supportedFormats";
 import { FormatSelector } from "./FormatSelector";
-import { ImageFormatSettings } from "./ImageFormatSettings";
-import { VideoFormatSettings } from "./VideoFormatSettings";
 
 interface FormatSettingsProps {
   selectedFormat: string;
@@ -59,53 +57,19 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
     }
   }, [selectedFormat, availableQualities, selectedQuality, setSelectedQuality]);
 
-  // Determine the primary media type
-  const primaryMediaType = useMemo(() => {
-    if (!files.length) return null;
-    const types = files
-      .map((file) => FormatUtils.detectMediaType(file.name))
-      .filter(Boolean);
-    if (types.length === 0) return null;
-
-    // Return the most common media type
-    const typeCounts = types.reduce((acc, type) => {
-      acc[type!] = (acc[type!] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return (
-      Object.entries(typeCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || null
-    );
-  }, [files]);
-
-  // Render quality options
-  const renderQualityOptions = () => {
-    return availableQualities.map((quality) => {
-      let label = quality.charAt(0).toUpperCase() + quality.slice(1);
-      let description = "";
-
-      switch (quality) {
-        case "high":
-          description = " (Best quality, slower)";
-          break;
-        case "medium":
-          description = " (Balanced)";
-          break;
-        case "low":
-          description = " (Faster, smaller file)";
-          break;
-        case "default":
-          description = " (Standard)";
-          break;
-      }
-
-      return (
-        <option key={quality} value={quality}>
-          {label}
-          {description}
-        </option>
-      );
-    });
+  const getQualityDescription = (quality: string): string => {
+    switch (quality) {
+      case "high":
+        return "Best quality, larger file size";
+      case "medium":
+        return "Balanced quality and size";
+      case "low":
+        return "Smallest file size, lower quality";
+      case "default":
+        return "Standard settings";
+      default:
+        return "";
+    }
   };
 
   return (
@@ -115,106 +79,89 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
       </h3>
 
       <div className="space-y-6">
-        {/* Show message when no files are uploaded */}
-        {files.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-400 mb-2">
-              <svg
-                className="mx-auto h-12 w-12"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-              </svg>
+        
+        <FormatSelector
+          selectedFormat={selectedFormat}
+          onFormatSelect={setSelectedFormat}
+          files={files}
+          isDisabled={isConverting}
+        />
+
+        {selectedFormat && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Quality Preference
+            </label>
+            <div className="space-y-2">
+              {availableQualities.map((quality) => (
+                <label
+                  key={quality}
+                  className={`
+                    flex items-center p-3 rounded-lg border transition-colors cursor-pointer
+                    ${
+                      selectedQuality === quality
+                        ? "bg-blue-50 border-blue-200 text-blue-900"
+                        : "bg-white border-gray-200 hover:bg-gray-50"
+                    }
+                    ${isConverting ? "opacity-50 cursor-not-allowed" : ""}
+                  `}
+                >
+                  <input
+                    type="radio"
+                    name="quality"
+                    value={quality}
+                    checked={selectedQuality === quality}
+                    onChange={(e) => !isConverting && setSelectedQuality(e.target.value)}
+                    disabled={isConverting}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <div className="ml-3 flex-1">
+                    <div className="font-medium text-sm capitalize">
+                      {quality} Quality
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {getQualityDescription(quality)}
+                    </div>
+                  </div>
+                </label>
+              ))}
             </div>
-            <p className="text-gray-500 text-sm">
-              Upload files to view supported formats
-            </p>
           </div>
-        ) : /* Conditional rendering based on media type */
-        primaryMediaType === "image" ? (
-          <ImageFormatSettings
-            selectedFormat={selectedFormat}
-            onFormatSelect={setSelectedFormat}
-            selectedQuality={selectedQuality}
-            onQualitySelect={setSelectedQuality}
-            files={files}
-            isDisabled={isConverting}
-          />
-        ) : primaryMediaType === "video" ? (
-          <VideoFormatSettings
-            selectedFormat={selectedFormat}
-            onFormatSelect={setSelectedFormat}
-            selectedQuality={selectedQuality}
-            onQualitySelect={setSelectedQuality}
-            files={files}
-            isDisabled={isConverting}
-          />
-        ) : (
-          <>
-            <FormatSelector
-              selectedFormat={selectedFormat}
-              onFormatSelect={setSelectedFormat}
-              files={files}
-              isDisabled={isConverting}
-            />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Quality
-              </label>
-              <select
-                value={selectedQuality}
-                onChange={(e) => setSelectedQuality(e.target.value)}
-                disabled={!selectedFormat || isConverting}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                {renderQualityOptions()}
-              </select>
-
-              {selectedFormat && (
-                <div className="mt-1 text-xs text-gray-500">
-                  Available qualities for{" "}
-                  {SUPPORTED_FORMATS[selectedFormat as SupportedFormat]?.name ||
-                    selectedFormat}
-                </div>
-              )}
-            </div>
-          </>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-700">
-            Preserve original metadata
-          </span>
-          <span className="text-sm text-gray-600">
-            {preserveMetadata ? "Yes" : "No"}
-            <span className="text-gray-400 ml-1">(configure in settings)</span>
-          </span>
-        </div>
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm text-gray-700">
+              Preserve Metadata
+            </span>
+            <span className={`text-xs px-2 py-1 rounded ${preserveMetadata ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+              {preserveMetadata ? "Enabled" : "Disabled"}
+            </span>
+          </div>
 
-        <div className="space-y-3">
-          <button
-            onClick={onStartConversion}
-            disabled={
-              files.length === 0 ||
-              !selectedFormat ||
-              !ffmpegAvailable ||
-              isConverting
-            }
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
-          >
-            {isConverting ? "Converting..." : "Start Conversion"}
-          </button>
-
-          {hasRetryableFiles && !isConverting && (
+          <div className="space-y-3">
             <button
-              onClick={onResetFiles}
-              className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors font-medium text-sm"
+              onClick={onStartConversion}
+              disabled={
+                files.length === 0 ||
+                !selectedFormat ||
+                !ffmpegAvailable ||
+                isConverting
+              }
+              className="w-full bg-blue-600 text-white py-2.5 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium shadow-sm"
             >
-              Reset All for Retry
+              {isConverting ? "Converting..." : "Start Conversion"}
             </button>
-          )}
+
+            {hasRetryableFiles && !isConverting && (
+              <button
+                onClick={onResetFiles}
+                className="w-full bg-white border border-gray-300 text-gray-700 py-2.5 px-4 rounded-lg hover:bg-gray-50 transition-colors font-medium text-sm"
+              >
+                Reset All for Retry
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

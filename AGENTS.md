@@ -4,6 +4,7 @@
 
 - Follow industry best practices.
 - Make only surgical edits, keeping changes as small and manageable as possible to achieve the task given.
+- When adding a new feature, always ensure changes are made to the UI in /src and the backend code in /src-tauri.
 
 ## In the src-tauri folder where the Rust code lives
 
