@@ -179,10 +179,10 @@ export const QualitySelector: React.FC<QualitySelectorProps> = ({
             <label
               key={quality}
               className={`
-                flex items-center p-3 rounded-lg border transition-colors cursor-pointer
+                flex items-center p-3 rounded-xl border-2 transition-all duration-200 cursor-pointer
                 ${currentQuality === quality
-                  ? "bg-blue-50 border-blue-200 text-blue-900"
-                  : "bg-white border-gray-200 hover:bg-gray-50"
+                  ? "bg-blue-50 border-blue-500 text-blue-900"
+                  : "bg-white border-gray-200 hover:border-blue-300"
                 }
                 ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}
               `}

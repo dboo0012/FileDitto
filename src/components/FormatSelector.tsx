@@ -140,12 +140,12 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
               onClick={() => !isDisabled && onFormatSelectForType(activeTab, format)}
               disabled={isDisabled}
               className={`
-                relative flex flex-col items-start p-3 rounded-xl border transition-all duration-200 text-left group
+                relative flex flex-col items-start p-3 rounded-xl border-2 transition-all duration-200 text-left group
                 ${
                   selected
-                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                    ? "border-blue-500 bg-blue-50"
                     : !isDisabled
-                    ? "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+                    ? "border-gray-200 bg-white hover:border-blue-300"
                     : "border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed"
                 }
               `}
