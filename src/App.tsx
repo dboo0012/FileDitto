@@ -3,6 +3,7 @@ import "./App.css";
 import { FileUploadZone } from "./components/FileUploadZone";
 import { FileList } from "./components/FileList";
 import { ConversionPanel } from "./components/ConversionPanel";
+import { ConversionSummary } from "./components/ConversionSummary";
 import { MetadataModal } from "./components/MetadataModal";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { FFmpegWarning } from "./components/FFmpegWarning";
@@ -169,45 +170,60 @@ function App() {
         onOpenSettings={() => setShowSettingsPanel(true)}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
+      <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column: Upload, Files, Summary */}
+          <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <FileUploadZone
                 dragActive={dragActive}
                 onBrowseClick={handleFileSelect}
               />
 
-              <FileList
+              <div className="-mt-2">
+                  <FileList
+                    files={files}
+                    isLoading={isLoading}
+                    onRemove={(fileId) => removeFile(fileId, cancelConversion)}
+                    onShowMetadata={showMetadata}
+                    onCancel={cancelConversion}
+                    onCancelAll={cancelAllConversions}
+                    onClearAll={() => clearAllFiles(cancelConversion)}
+                    onOpenFolder={openOutputFolder}
+                  />
+               </div>
+            </div>
+
+            <div className="sticky top-6 z-10">
+              <ConversionSummary
                 files={files}
-                isLoading={isLoading}
-                onRemove={(fileId) => removeFile(fileId, cancelConversion)}
-                onShowMetadata={showMetadata}
-                onCancel={cancelConversion}
-                onCancelAll={cancelAllConversions}
-                onClearAll={() => clearAllFiles(cancelConversion)}
-                onOpenFolder={openOutputFolder}
+                onOpenOutputFolder={openOutputFolder}
               />
             </div>
           </div>
 
-          <ConversionPanel
-            files={files}
-            selectedFormat={selectedFormat}
-            setSelectedFormat={setSelectedFormat}
-            selectedQuality={selectedQuality}
-            setSelectedQuality={setSelectedQuality}
-            currentOutputMode={currentOutputMode}
-            customDirectory={customDirectory}
-            setCustomDirectory={setCustomDirectory}
-            onOutputModeChange={handleOutputModeChange}
-            onSelectOutputDirectory={selectOutputDirectory}
-            onOpenOutputFolder={openOutputFolder}
-            onStartConversion={startConversion}
-            onResetFiles={resetFilesForRetry}
-            preserveMetadata={userSettings.preserve_metadata}
-            ffmpegAvailable={ffmpegAvailable}
-          />
+          {/* Right Column: Settings */}
+          <div className="lg:pl-4">
+            <div className="sticky top-6 space-y-6">
+              <ConversionPanel
+                files={files}
+                selectedFormat={selectedFormat}
+                setSelectedFormat={setSelectedFormat}
+                selectedQuality={selectedQuality}
+                setSelectedQuality={setSelectedQuality}
+                currentOutputMode={currentOutputMode}
+                customDirectory={customDirectory}
+                setCustomDirectory={setCustomDirectory}
+                onOutputModeChange={handleOutputModeChange}
+                onSelectOutputDirectory={selectOutputDirectory}
+                onOpenOutputFolder={openOutputFolder}
+                onStartConversion={startConversion}
+                onResetFiles={resetFilesForRetry}
+                preserveMetadata={userSettings.preserve_metadata}
+                ffmpegAvailable={ffmpegAvailable}
+              />
+            </div>
+          </div>
         </div>
       </main>
 

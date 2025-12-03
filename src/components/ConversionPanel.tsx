@@ -1,6 +1,5 @@
 import { OutputSettings } from "./OutputSettings";
 import { FormatSettings } from "./FormatSettings";
-import { ConversionSummary } from "./ConversionSummary";
 import { FileItem } from "./FileListItem";
 
 interface ConversionPanelProps {
@@ -59,11 +58,6 @@ export const ConversionPanel = ({
         onResetFiles={onResetFiles}
         files={files}
         ffmpegAvailable={ffmpegAvailable}
-      />
-
-      <ConversionSummary
-        files={files}
-        onOpenOutputFolder={onOpenOutputFolder}
       />
     </div>
   );
