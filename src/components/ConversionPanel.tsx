@@ -1,4 +1,4 @@
-import { OutputSettings } from "./OutputSettings";
+import { ConversionSummary } from "./ConversionSummary";
 import { FormatSettings } from "./FormatSettings";
 import { FileItem } from "./FileListItem";
 
@@ -8,11 +8,6 @@ interface ConversionPanelProps {
   setSelectedFormat: (format: string) => void;
   selectedQuality: string;
   setSelectedQuality: (quality: string) => void;
-  currentOutputMode: "same_as_input" | "custom_directory";
-  customDirectory: string;
-  setCustomDirectory: (directory: string) => void;
-  onOutputModeChange: (mode: "same_as_input" | "custom_directory") => void;
-  onSelectOutputDirectory: () => void;
   onOpenOutputFolder?: (path?: string) => void;
   onStartConversion: () => void;
   onResetFiles: () => void;
@@ -26,11 +21,6 @@ export const ConversionPanel = ({
   setSelectedFormat,
   selectedQuality,
   setSelectedQuality,
-  currentOutputMode,
-  customDirectory,
-  setCustomDirectory,
-  onOutputModeChange,
-  onSelectOutputDirectory,
   onOpenOutputFolder,
   onStartConversion,
   onResetFiles,
@@ -39,13 +29,9 @@ export const ConversionPanel = ({
 }: ConversionPanelProps) => {
   return (
     <div className="space-y-6">
-      <OutputSettings
-        currentOutputMode={currentOutputMode}
-        customDirectory={customDirectory}
-        onOutputModeChange={onOutputModeChange}
-        onSelectOutputDirectory={onSelectOutputDirectory}
+      <ConversionSummary
+        files={files}
         onOpenOutputFolder={onOpenOutputFolder}
-        setCustomDirectory={setCustomDirectory}
       />
 
       <FormatSettings

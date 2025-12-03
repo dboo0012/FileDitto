@@ -3,7 +3,7 @@ import "./App.css";
 import { FileUploadZone } from "./components/FileUploadZone";
 import { FileList } from "./components/FileList";
 import { ConversionPanel } from "./components/ConversionPanel";
-import { ConversionSummary } from "./components/ConversionSummary";
+import { OutputSettings } from "./components/OutputSettings";
 import { MetadataModal } from "./components/MetadataModal";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { FFmpegWarning } from "./components/FFmpegWarning";
@@ -172,7 +172,7 @@ function App() {
 
       <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Upload, Files, Summary */}
+          {/* Left Column: Upload, Files, Output Settings */}
           <div className="space-y-6">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <FileUploadZone
@@ -195,14 +195,19 @@ function App() {
             </div>
 
             <div className="sticky top-6 z-10">
-              <ConversionSummary
-                files={files}
+              <OutputSettings
+                currentOutputMode={currentOutputMode}
+                customDirectory={customDirectory}
+                onOutputModeChange={handleOutputModeChange}
+                onSelectOutputDirectory={selectOutputDirectory}
                 onOpenOutputFolder={openOutputFolder}
+                setCustomDirectory={setCustomDirectory}
+                files={files}
               />
             </div>
           </div>
 
-          {/* Right Column: Settings */}
+          {/* Right Column: Summary, Format Settings */}
           <div className="lg:pl-4">
             <div className="sticky top-6 space-y-6">
               <ConversionPanel
@@ -211,11 +216,6 @@ function App() {
                 setSelectedFormat={setSelectedFormat}
                 selectedQuality={selectedQuality}
                 setSelectedQuality={setSelectedQuality}
-                currentOutputMode={currentOutputMode}
-                customDirectory={customDirectory}
-                setCustomDirectory={setCustomDirectory}
-                onOutputModeChange={handleOutputModeChange}
-                onSelectOutputDirectory={selectOutputDirectory}
                 onOpenOutputFolder={openOutputFolder}
                 onStartConversion={startConversion}
                 onResetFiles={resetFilesForRetry}
