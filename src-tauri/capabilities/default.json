@@ -26,6 +26,11 @@
     "dialog:allow-save",
     "shell:allow-execute",
     "shell:default",
-    "shell:default"
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "**" }
+      ]
+    }
   ]
 }
