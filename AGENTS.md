@@ -24,3 +24,4 @@
 - Component Naming: Use PascalCase, file name matches component name
 - Functional programming: Each function and component handles only one functionality
 - All components should be functional.
+- NEVER cast types to `any`.

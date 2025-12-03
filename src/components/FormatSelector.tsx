@@ -20,8 +20,6 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
   files,
   isDisabled = false,
 }) => {
-
-
   // Get available formats grouped by media type
   const getAvailableFormats = (): Record<string, SupportedFormat[]> => {
     if (files.length === 0) {

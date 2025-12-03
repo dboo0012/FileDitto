@@ -4,7 +4,6 @@ import { TauriAPI } from "../utils/tauri";
 import { FileItem } from "../components/FileListItem";
 
 interface UseConversionProps {
-  files: FileItem[];
   updateFilesByConversionId: (
     conversionId: string,
     updates: Partial<FileItem>
@@ -12,7 +11,6 @@ interface UseConversionProps {
 }
 
 export const useConversion = ({
-  files,
   updateFilesByConversionId,
 }: UseConversionProps) => {
   const [selectedFormat, setSelectedFormat] = useState("");

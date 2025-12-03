@@ -17,36 +17,36 @@ impl FormatConfig {
     /// Apply this configuration to an FFmpeg command
     pub fn apply_to_command(&self, cmd: &mut Command) {
         // Apply video codec
-        cmd.args(&["-c:v", self.video_codec]);
+        cmd.args(["-c:v", self.video_codec]);
 
         // Apply audio codec if specified
         if let Some(audio_codec) = self.audio_codec {
-            cmd.args(&["-c:a", audio_codec]);
+            cmd.args(["-c:a", audio_codec]);
         }
 
         // Apply preset if specified
         if let Some(preset) = self.preset {
-            cmd.args(&["-preset", preset]);
+            cmd.args(["-preset", preset]);
         }
 
         // Apply CRF if specified
         if let Some(crf) = self.crf {
-            cmd.args(&["-crf", crf]);
+            cmd.args(["-crf", crf]);
         }
 
         // Apply bitrate if specified
         if let Some(bitrate) = self.bitrate {
-            cmd.args(&["-b:v", bitrate]);
+            cmd.args(["-b:v", bitrate]);
         }
 
         // Apply image quality if specified
         if let Some(quality) = self.quality {
-            cmd.args(&["-q:v", quality]);
+            cmd.args(["-q:v", quality]);
         }
 
         // Apply compression if specified
         if let Some(compression) = self.compression {
-            cmd.args(&["-compression_level", compression]);
+            cmd.args(["-compression_level", compression]);
         }
     }
 }

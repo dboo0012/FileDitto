@@ -8,35 +8,33 @@ use std::process::Command;
 // Extracts metadata from a media file using FFprobe.
 #[tauri::command]
 pub async fn extract_file_metadata(file_path: String) -> Result<FileMetadata, String> {
-    println!("🔍 Extracting metadata for: {}", file_path);
+    println!("🔍 Extracting metadata for: {file_path}");
 
     if !Path::new(&file_path).exists() {
-        return Err(format!("File does not exist: {}", file_path));
+        return Err(format!("File does not exist: {file_path}"));
     }
 
     let ffprobe_path = path::ffprobe_path();
 
     let output = Command::new(&ffprobe_path)
-        .args(&[
-            "-v",
-            "quiet",
-            "-print_format",
-            "json",
+        .args([
+            "-v", "quiet",
+            "-print_format", "json",
             "-show_format",
             "-show_streams",
             &file_path,
         ])
         .output()
-        .map_err(|e| format!("Failed to execute ffprobe: {}", e))?;
+        .map_err(|e| format!("Failed to execute ffprobe: {e}"))?;
 
     if !output.status.success() {
         let error = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("FFprobe failed: {}", error));
+        return Err(format!("FFprobe failed: {error}"));
     }
 
     let json_output = String::from_utf8_lossy(&output.stdout);
     let json_value: serde_json::Value = serde_json::from_str(&json_output)
-        .map_err(|e| format!("Failed to parse ffprobe output: {}", e))?;
+        .map_err(|e| format!("Failed to parse ffprobe output: {e}"))?;
 
     Ok(parse_metadata_from_json(&json_value))
 }

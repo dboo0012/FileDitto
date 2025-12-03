@@ -38,7 +38,7 @@ function App() {
     setSelectedFormat,
     selectedQuality,
     setSelectedQuality,
-  } = useConversion({ files, updateFilesByConversionId });
+  } = useConversion({ updateFilesByConversionId });
 
   const {
     userSettings,

@@ -40,7 +40,7 @@ export const useFiles = () => {
 
     setFiles((prev) => [...prev, ...newFiles]);
     setIsLoading(false);
-    console.log("Laoded files", newFiles);
+    console.log("Loaded files", newFiles);
   }, []);
 
   const removeFile = useCallback(async (id: string, onCancel?: (conversionId: string) => Promise<void>) => {

@@ -59,14 +59,6 @@ export const FormatSettings: React.FC<FormatSettingsProps> = ({
     }
   }, [selectedFormat, availableQualities, selectedQuality, setSelectedQuality]);
 
-  // Determine if we're dealing with image files
-  const isImageConversion = useMemo(() => {
-    if (!files.length) return false;
-    return files.some(
-      (file) => FormatUtils.detectMediaType(file.name) === "image"
-    );
-  }, [files]);
-
   // Determine the primary media type
   const primaryMediaType = useMemo(() => {
     if (!files.length) return null;

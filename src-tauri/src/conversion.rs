@@ -11,6 +11,40 @@ use std::process::{Command, Stdio};
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
+/// Cleans up a partial output file if it exists.
+fn cleanup_partial_output_file(output_path: &str) {
+    if Path::new(output_path).exists() {
+        match std::fs::remove_file(output_path) {
+            Ok(_) => println!("🧹 Removed partial output file: {output_path}"),
+            Err(e) => println!("⚠️ Failed to remove partial output file: {output_path} - {e}"),
+        }
+    } else {
+        println!("ℹ️ No partial output file to clean up");
+    }
+}
+
+/// Kills a process by its ID using platform-specific commands.
+fn kill_process(process_id: u32) -> std::result::Result<(), String> {
+    #[cfg(target_os = "windows")]
+    let result = Command::new("taskkill")
+        .args(["/F", "/PID", &process_id.to_string()])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
+    let result = Command::new("kill")
+        .args(["-9", &process_id.to_string()])
+        .output();
+
+    match result {
+        Ok(output) if output.status.success() => Ok(()),
+        Ok(output) => {
+            let error = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Failed to kill process: {error}"))
+        }
+        Err(e) => Err(format!("Failed to execute kill command: {e}")),
+    }
+}
+
 // Main conversion process
 #[tauri::command]
 pub async fn convert_file(
@@ -122,115 +156,35 @@ pub async fn cancel_conversion(
 
     // Kill the actual FFmpeg process using OS kill commands
     let process_handles: ProcessHandles = app_handle.state::<ProcessHandles>().inner().clone();
-    {
-        let mut handles = process_handles.lock().unwrap();
-        if let Some(process_id) = handles.remove(&conversion_id) {
-            #[cfg(target_os = "windows")]
-            {
-                use std::process::Command;
-                match Command::new("taskkill")
-                    .args(&["/F", "/PID", &process_id.to_string()])
-                    .output()
-                {
-                    Ok(output) => {
-                        if output.status.success() {
-                            println!(
-                                "✅ FFmpeg process killed successfully for conversion: {}",
-                                &conversion_id[..8]
-                            );
+    let mut handles = process_handles.lock().unwrap();
 
-                            // Clean up partial output file
-                            if let Some(output_path) = &output_path_for_cleanup {
-                                if Path::new(output_path).exists() {
-                                    match std::fs::remove_file(output_path) {
-                                        Ok(_) => {
-                                            println!(
-                                                "🧹 Removed partial output file: {}",
-                                                output_path
-                                            );
-                                        }
-                                        Err(e) => {
-                                            println!(
-                                                "⚠️ Failed to remove partial output file: {} - {}",
-                                                output_path, e
-                                            );
-                                        }
-                                    }
-                                } else {
-                                    println!("ℹ️ No partial output file to clean up");
-                                }
-                            }
+    if let Some(process_id) = handles.remove(&conversion_id) {
+        match kill_process(process_id) {
+            Ok(()) => {
+                println!(
+                    "✅ FFmpeg process killed successfully for conversion: {}",
+                    &conversion_id[..8]
+                );
 
-                            Ok(true)
-                        } else {
-                            let error = String::from_utf8_lossy(&output.stderr);
-                            println!("❌ Failed to kill FFmpeg process: {}", error);
-                            Err(format!("Failed to kill process: {}", error))
-                        }
-                    }
-                    Err(e) => {
-                        println!("❌ Failed to execute taskkill: {}", e);
-                        Err(format!("Failed to execute taskkill: {}", e))
-                    }
+                // Clean up partial output file
+                if let Some(output_path) = &output_path_for_cleanup {
+                    cleanup_partial_output_file(output_path);
                 }
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                use std::process::Command;
-                match Command::new("kill")
-                    .args(&["-9", &process_id.to_string()])
-                    .output()
-                {
-                    Ok(output) => {
-                        if output.status.success() {
-                            println!(
-                                "✅ FFmpeg process killed successfully for conversion: {}",
-                                &conversion_id[..8]
-                            );
 
-                            // Clean up partial output file
-                            if let Some(output_path) = &output_path_for_cleanup {
-                                if Path::new(output_path).exists() {
-                                    match std::fs::remove_file(output_path) {
-                                        Ok(_) => {
-                                            println!(
-                                                "🧹 Removed partial output file: {}",
-                                                output_path
-                                            );
-                                        }
-                                        Err(e) => {
-                                            println!(
-                                                "⚠️ Failed to remove partial output file: {} - {}",
-                                                output_path, e
-                                            );
-                                        }
-                                    }
-                                } else {
-                                    println!("ℹ️ No partial output file to clean up");
-                                }
-                            }
-
-                            Ok(true)
-                        } else {
-                            let error = String::from_utf8_lossy(&output.stderr);
-                            println!("❌ Failed to kill FFmpeg process: {}", error);
-                            Err(format!("Failed to kill process: {}", error))
-                        }
-                    }
-                    Err(e) => {
-                        println!("❌ Failed to execute kill: {}", e);
-                        Err(format!("Failed to execute kill: {}", e))
-                    }
-                }
+                Ok(true)
             }
-        } else {
-            println!(
-                "⚠️ Process not found or already completed for conversion: {}",
-                &conversion_id[..8]
-            );
-            // Still return Ok(true) since the conversion is effectively "cancelled"
-            Ok(true)
+            Err(e) => {
+                println!("❌ Failed to kill FFmpeg process: {e}");
+                Err(e)
+            }
         }
+    } else {
+        println!(
+            "⚠️ Process not found or already completed for conversion: {}",
+            &conversion_id[..8]
+        );
+        // Still return Ok(true) since the conversion is effectively "cancelled"
+        Ok(true)
     }
 }
 
@@ -243,18 +197,16 @@ async fn perform_conversion(
     state: ConversionState,
     app_handle: AppHandle,
 ) -> Result<String> {
-    println!(
-        "🔍 Starting conversion process for ID: {}",
-        &conversion_id[..8]
-    );
-    println!("📁 Input file: {}", input_path);
-    println!("📁 Output file: {}", output_path);
-    println!("⚙️ Options: {:?}", options);
+    let id_short = &conversion_id[..8];
+    println!("🔍 Starting conversion process for ID: {id_short}");
+    println!("📁 Input file: {input_path}");
+    println!("📁 Output file: {output_path}");
+    println!("⚙️ Options: {options:?}");
 
     // Validate input file exists
     if !Path::new(input_path).exists() {
-        let error_msg = format!("Input file does not exist: {}", input_path);
-        println!("❌ {}", error_msg);
+        let error_msg = format!("Input file does not exist: {input_path}");
+        println!("❌ {error_msg}");
         return Err(anyhow!(error_msg));
     }
 
@@ -266,7 +218,7 @@ async fn perform_conversion(
 
     // Build FFmpeg command based on output format
     let mut cmd = Command::new(&ffmpeg_path);
-    cmd.args(&["-y", "-i", input_path]);
+    cmd.args(["-y", "-i", input_path]);
 
     if is_image_conversion {
         // Apply image-specific settings
@@ -279,24 +231,23 @@ async fn perform_conversion(
     }
 
     // Add metadata preservation option
-    if !options.preserve_metadata {
-        cmd.args(&["-map_metadata", "-1"]);
-        println!("🔄 Metadata preservation: disabled");
-    } else {
+    if options.preserve_metadata {
         println!("🔄 Metadata preservation: enabled");
+    } else {
+        cmd.args(["-map_metadata", "-1"]);
+        println!("🔄 Metadata preservation: disabled");
     }
 
     cmd.arg(output_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     // Log the complete command being executed
-    let command_str = format!("{:?}", cmd);
-    println!("🚀 Executing FFmpeg command: {}", command_str);
+    println!("🚀 Executing FFmpeg command: {cmd:?}");
 
     // Start FFmpeg process
     let child = cmd.spawn().map_err(|e| {
-        let error_msg = format!("Failed to start FFmpeg process: {}", e);
-        println!("❌ {}", error_msg);
+        let error_msg = format!("Failed to start FFmpeg process: {e}");
+        println!("❌ {error_msg}");
         println!("💡 Check if FFmpeg is properly installed and accessible");
         anyhow!(error_msg)
     })?;
@@ -322,24 +273,22 @@ async fn perform_conversion(
     println!("⏳ Waiting for FFmpeg process to complete...");
 
     let output = child.wait_with_output().map_err(|e| {
-        let error_msg = format!("FFmpeg process failed to complete: {}", e);
-        println!("❌ {}", error_msg);
+        let error_msg = format!("FFmpeg process failed to complete: {e}");
+        println!("❌ {error_msg}");
         anyhow!(error_msg)
     })?;
 
-    println!(
-        "🎯 FFmpeg process completed with exit code: {:?}",
-        output.status.code()
-    );
+    let exit_code = output.status.code();
+    println!("🎯 FFmpeg process completed with exit code: {exit_code:?}");
 
     if !output.status.success() {
         let stderr_output = String::from_utf8_lossy(&output.stderr);
         let stdout_output = String::from_utf8_lossy(&output.stdout);
 
         println!("❌ FFmpeg conversion failed!");
-        println!("📊 Exit code: {:?}", output.status.code());
-        println!("📄 STDERR output:\n{}", stderr_output);
-        println!("📄 STDOUT output:\n{}", stdout_output);
+        println!("📊 Exit code: {exit_code:?}");
+        println!("📄 STDERR output:\n{stderr_output}");
+        println!("📄 STDOUT output:\n{stdout_output}");
 
         // Try to provide more specific error context
         let error_context = if stderr_output.contains("No such file or directory") {
@@ -356,11 +305,10 @@ async fn perform_conversion(
             "General FFmpeg error"
         };
 
-        println!("💡 Error context: {}", error_context);
+        println!("💡 Error context: {error_context}");
 
         return Err(anyhow!(
-            "FFmpeg conversion failed: {} - {}",
-            error_context,
+            "FFmpeg conversion failed: {error_context} - {}",
             stderr_output.trim()
         ));
     }
@@ -368,28 +316,22 @@ async fn perform_conversion(
     // Verify output file was created successfully
     let output_file = Path::new(output_path);
     if !output_file.exists() {
-        let error_msg = format!("Output file was not created: {}", output_path);
-        println!("❌ {}", error_msg);
+        let error_msg = format!("Output file was not created: {output_path}");
+        println!("❌ {error_msg}");
         return Err(anyhow!(error_msg));
     }
 
     let file_size = output_file.metadata().map(|m| m.len()).unwrap_or(0);
 
     if file_size == 0 {
-        let error_msg = format!("Output file is empty: {}", output_path);
-        println!("❌ {}", error_msg);
+        let error_msg = format!("Output file is empty: {output_path}");
+        println!("❌ {error_msg}");
         return Err(anyhow!(error_msg));
     }
 
-    println!(
-        "✅ Conversion completed successfully: {} ({} bytes)",
-        output_file
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy(),
-        file_size
-    );
-    println!("📁 Output file location: {}", output_path);
+    let file_name = output_file.file_name().unwrap_or_default().to_string_lossy();
+    println!("✅ Conversion completed successfully: {file_name} ({file_size} bytes)");
+    println!("📁 Output file location: {output_path}");
 
     // Remove completed conversion from tracking
     {
@@ -442,34 +384,23 @@ fn apply_image_settings(cmd: &mut Command, options: &ConversionOptions) -> Resul
     let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
 
     // For images, we need to specify that we want only one frame
-    cmd.args(&["-vframes", "1"]);
+    cmd.args(["-vframes", "1"]);
 
     // Apply the format configuration
     config.apply_to_command(cmd);
 
-    // Add format-specific optimizations
-    match options.output_format.as_str() {
-        "jpeg" => {
-            // JPEG-specific optimizations
-            cmd.args(&["-pix_fmt", "yuvj420p"]);
-        }
-        "png" => {
-            // PNG-specific optimizations
-            cmd.args(&["-pix_fmt", "rgba"]);
-        }
-        "webp" => {
-            // WebP-specific optimizations
-            cmd.args(&["-pix_fmt", "yuva420p"]);
-        }
-        "bmp" => {
-            // BMP-specific optimizations
-            cmd.args(&["-pix_fmt", "bgr24"]);
-        }
-        "tiff" => {
-            // TIFF-specific optimizations
-            cmd.args(&["-pix_fmt", "rgb24"]);
-        }
-        _ => {}
+    // Add format-specific pixel format optimizations
+    let pix_fmt = match options.output_format.as_str() {
+        "jpeg" => Some("yuvj420p"),
+        "png" => Some("rgba"),
+        "webp" => Some("yuva420p"),
+        "bmp" => Some("bgr24"),
+        "tiff" => Some("rgb24"),
+        _ => None,
+    };
+
+    if let Some(fmt) = pix_fmt {
+        cmd.args(["-pix_fmt", fmt]);
     }
 
     println!(

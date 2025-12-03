@@ -1,4 +1,3 @@
-import React from "react";
 import { OutputSettings } from "./OutputSettings";
 import { FormatSettings } from "./FormatSettings";
 import { ConversionSummary } from "./ConversionSummary";
@@ -22,7 +21,7 @@ interface ConversionPanelProps {
   ffmpegAvailable: boolean | null;
 }
 
-export const ConversionPanel: React.FC<ConversionPanelProps> = ({
+export const ConversionPanel = ({
   files,
   selectedFormat,
   setSelectedFormat,
@@ -38,7 +37,7 @@ export const ConversionPanel: React.FC<ConversionPanelProps> = ({
   onResetFiles,
   preserveMetadata,
   ffmpegAvailable,
-}) => {
+}: ConversionPanelProps) => {
   return (
     <div className="space-y-6">
       <OutputSettings

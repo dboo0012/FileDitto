@@ -25,25 +25,20 @@ fn get_binary_path(binary_name: &str) -> PathBuf {
     match get_sidecar_path(binary_name) {
         Ok(sidecar_path) if sidecar_path.exists() => {
             println!(
-                "✅ Loaded sidecar {}: {}",
-                binary_name,
+                "✅ Loaded sidecar {binary_name}: {}",
                 sidecar_path.display()
             );
             sidecar_path
         }
         Ok(sidecar_path) => {
             println!(
-                "⚠️ Sidecar {} not found at {}, using default system PATH",
-                binary_name,
+                "⚠️ Sidecar {binary_name} not found at {}, using default system PATH",
                 sidecar_path.display()
             );
             system_path
         }
         Err(_) => {
-            println!(
-                "⚠️ Could not determine sidecar path for {}, using system PATH",
-                binary_name
-            );
+            println!("⚠️ Could not determine sidecar path for {binary_name}, using system PATH");
             system_path
         }
     }
@@ -51,16 +46,23 @@ fn get_binary_path(binary_name: &str) -> PathBuf {
 
 /// Gets the expected path to a binary adjacent to the current executable.
 /// On Windows, adds .exe extension automatically.
+#[cfg(windows)]
 fn get_sidecar_path(binary_name: &str) -> anyhow::Result<PathBuf> {
     let mut path = current_exe()?
         .parent()
         .context("Cannot get parent directory of current executable")?
         .join(binary_name);
+    path.set_extension("exe");
+    Ok(path)
+}
 
-    if cfg!(windows) {
-        path.set_extension("exe");
-    }
-
+/// Gets the expected path to a binary adjacent to the current executable.
+#[cfg(not(windows))]
+fn get_sidecar_path(binary_name: &str) -> anyhow::Result<PathBuf> {
+    let path = current_exe()?
+        .parent()
+        .context("Cannot get parent directory of current executable")?
+        .join(binary_name);
     Ok(path)
 }
 
@@ -71,46 +73,60 @@ fn get_sidecar_path(binary_name: &str) -> anyhow::Result<PathBuf> {
 /// On Linux, this attempts to use xdg-open to open the containing directory.
 #[command]
 pub async fn open_file_location(file_path: String) -> Result<(), String> {
-    println!("🔍 Attempting to open file location for: {}", file_path);
+    println!("🔍 Attempting to open file location for: {file_path}");
 
     let path = Path::new(&file_path);
 
     // Check if the file exists
     if !path.exists() {
-        println!("❌ File not found: {}", file_path);
-        return Err(format!("File not found: {}", file_path));
+        println!("❌ File not found: {file_path}");
+        return Err(format!("File not found: {file_path}"));
     }
 
     println!("✅ File exists, opening location...");
 
-    let result = if cfg!(target_os = "windows") {
-        // Windows: Use explorer with /select to highlight the file
-        println!("🪟 Using Windows explorer command");
-        Command::new("explorer")
-            .args(["/select,", &file_path])
-            .spawn()
-    } else if cfg!(target_os = "macos") {
-        // macOS: Use open -R to reveal in Finder
-        println!("🍎 Using macOS open command");
-        Command::new("open").args(["-R", &file_path]).spawn()
-    } else {
-        // Linux: Open the containing directory with xdg-open
-        println!("🐧 Using Linux xdg-open command");
-        if let Some(parent) = path.parent() {
-            Command::new("xdg-open").arg(parent).spawn()
-        } else {
-            return Err("Cannot determine parent directory".to_string());
-        }
-    };
+    open_in_file_explorer(&file_path, path)
+}
 
-    match result {
-        Ok(_) => {
-            println!("✅ Successfully opened file location");
-            Ok(())
-        }
-        Err(e) => {
-            println!("❌ Failed to open file location: {}", e);
-            Err(format!("Failed to open file location: {}", e))
-        }
-    }
+#[cfg(target_os = "windows")]
+fn open_in_file_explorer(file_path: &str, _path: &Path) -> Result<(), String> {
+    println!("🪟 Using Windows explorer command");
+    Command::new("explorer")
+        .args(["/select,", file_path])
+        .spawn()
+        .map(|_| println!("✅ Successfully opened file location"))
+        .map_err(|e| {
+            println!("❌ Failed to open file location: {e}");
+            format!("Failed to open file location: {e}")
+        })
+}
+
+#[cfg(target_os = "macos")]
+fn open_in_file_explorer(file_path: &str, _path: &Path) -> Result<(), String> {
+    println!("🍎 Using macOS open command");
+    Command::new("open")
+        .args(["-R", file_path])
+        .spawn()
+        .map(|_| println!("✅ Successfully opened file location"))
+        .map_err(|e| {
+            println!("❌ Failed to open file location: {e}");
+            format!("Failed to open file location: {e}")
+        })
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+fn open_in_file_explorer(_file_path: &str, path: &Path) -> Result<(), String> {
+    println!("🐧 Using Linux xdg-open command");
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Cannot determine parent directory".to_string())?;
+
+    Command::new("xdg-open")
+        .arg(parent)
+        .spawn()
+        .map(|_| println!("✅ Successfully opened file location"))
+        .map_err(|e| {
+            println!("❌ Failed to open file location: {e}");
+            format!("Failed to open file location: {e}")
+        })
 }
