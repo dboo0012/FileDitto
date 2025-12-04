@@ -188,6 +188,9 @@ export const FileList: React.FC<FileListProps> = ({
         <div className="h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       );
     } else {
+      if (file.type === "audio") {
+        return <Music className="h-5 w-5 text-gray-400" />;
+      }
       return <FileText className="h-5 w-5 text-gray-400" />;
     }
   };

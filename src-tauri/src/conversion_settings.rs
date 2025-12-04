@@ -156,16 +156,41 @@ pub fn apply_custom_video_settings(
 }
 
 /// Apply custom audio settings to FFmpeg command
-/// Note: Currently not exposed in UI per design decision to keep audio at sensible defaults
-#[allow(dead_code)]
-pub fn apply_custom_audio_settings(cmd: &mut Command, settings: &AudioQualityOptions) {
-    // Apply audio bitrate
-    let bitrate = format!("{}k", settings.bitrate);
-    cmd.args(["-b:a", &bitrate]);
+pub fn apply_custom_audio_settings(
+    cmd: &mut Command,
+    settings: &AudioQualityOptions,
+    output_format: &str,
+) {
+    // Apply the appropriate audio codec based on format
+    let audio_codec = match output_format {
+        "mp3" => "libmp3lame",
+        "aac" => "aac",
+        "m4a" => "aac",
+        "wav" => "pcm_s16le",
+        "flac" => "flac",
+        "ogg" => "libvorbis",
+        "opus" => "libopus",
+        _ => "aac",
+    };
+    cmd.args(["-c:a", audio_codec]);
+
+    // Apply audio bitrate (not applicable to lossless formats)
+    match output_format {
+        "wav" | "flac" => {
+            // Lossless formats don't use bitrate
+        }
+        _ => {
+            let bitrate = format!("{}k", settings.bitrate);
+            cmd.args(["-b:a", &bitrate]);
+        }
+    }
 
     // Apply sample rate
     let sample_rate = settings.sample_rate.to_string();
     cmd.args(["-ar", &sample_rate]);
+
+    // No video stream for audio-only output
+    cmd.args(["-vn"]);
 }
 
 /// Apply custom image settings to FFmpeg command
@@ -210,6 +235,15 @@ pub fn get_format_config(format: &str, quality: &str) -> Result<FormatConfig> {
         "avi" => get_avi_config(),
         "mov" => get_mov_config(),
         
+        // Audio formats
+        "mp3" => get_mp3_config(quality),
+        "aac" => get_aac_config(quality),
+        "m4a" => get_m4a_config(quality),
+        "wav" => get_wav_config(),
+        "flac" => get_flac_config(),
+        "ogg" => get_ogg_config(quality),
+        "opus" => get_opus_config(quality),
+        
         // Image formats
         "jpeg" => get_jpeg_config(quality),
         "png" => get_png_config(quality),
@@ -219,7 +253,7 @@ pub fn get_format_config(format: &str, quality: &str) -> Result<FormatConfig> {
         
         _ => {
             return Err(anyhow!(
-                "Unsupported output format: '{}'. Supported formats: mp4, webm, avi, mov, jpeg, png, webp, bmp, tiff",
+                "Unsupported output format: '{}'. Supported formats: mp4, webm, avi, mov, mp3, aac, m4a, wav, flac, ogg, opus, jpeg, png, webp, bmp, tiff",
                 format
             ))
         }
@@ -506,5 +540,243 @@ fn get_tiff_config(quality: &str) -> FormatConfig {
             quality: None,
             compression: Some("lzw"),
         }
+    }
+}
+
+// Audio format configurations
+
+/// Get MP3 format configuration based on quality
+fn get_mp3_config(quality: &str) -> FormatConfig {
+    match quality {
+        "high" => FormatConfig {
+            video_codec: "libmp3lame",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("320k"),
+            quality: None,
+            compression: None,
+        },
+        "medium" => FormatConfig {
+            video_codec: "libmp3lame",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+        "low" => FormatConfig {
+            video_codec: "libmp3lame",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("128k"),
+            quality: None,
+            compression: None,
+        },
+        _ => FormatConfig {
+            video_codec: "libmp3lame",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+    }
+}
+
+/// Get AAC format configuration based on quality
+fn get_aac_config(quality: &str) -> FormatConfig {
+    match quality {
+        "high" => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("256k"),
+            quality: None,
+            compression: None,
+        },
+        "medium" => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+        "low" => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("128k"),
+            quality: None,
+            compression: None,
+        },
+        _ => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+    }
+}
+
+/// Get M4A format configuration based on quality
+fn get_m4a_config(quality: &str) -> FormatConfig {
+    match quality {
+        "high" => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("256k"),
+            quality: None,
+            compression: None,
+        },
+        "medium" => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+        "low" => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("128k"),
+            quality: None,
+            compression: None,
+        },
+        _ => FormatConfig {
+            video_codec: "aac",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+    }
+}
+
+/// Get WAV format configuration (lossless, no quality settings)
+fn get_wav_config() -> FormatConfig {
+    FormatConfig {
+        video_codec: "pcm_s16le",
+        audio_codec: None,
+        preset: None,
+        crf: None,
+        bitrate: None,
+        quality: None,
+        compression: None,
+    }
+}
+
+/// Get FLAC format configuration (lossless, no quality settings)
+fn get_flac_config() -> FormatConfig {
+    FormatConfig {
+        video_codec: "flac",
+        audio_codec: None,
+        preset: None,
+        crf: None,
+        bitrate: None,
+        quality: None,
+        compression: None,
+    }
+}
+
+/// Get OGG (Vorbis) format configuration based on quality
+fn get_ogg_config(quality: &str) -> FormatConfig {
+    match quality {
+        "high" => FormatConfig {
+            video_codec: "libvorbis",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("256k"),
+            quality: None,
+            compression: None,
+        },
+        "medium" => FormatConfig {
+            video_codec: "libvorbis",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+        "low" => FormatConfig {
+            video_codec: "libvorbis",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("128k"),
+            quality: None,
+            compression: None,
+        },
+        _ => FormatConfig {
+            video_codec: "libvorbis",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("192k"),
+            quality: None,
+            compression: None,
+        },
+    }
+}
+
+/// Get Opus format configuration based on quality
+fn get_opus_config(quality: &str) -> FormatConfig {
+    match quality {
+        "high" => FormatConfig {
+            video_codec: "libopus",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("256k"),
+            quality: None,
+            compression: None,
+        },
+        "medium" => FormatConfig {
+            video_codec: "libopus",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("128k"),
+            quality: None,
+            compression: None,
+        },
+        "low" => FormatConfig {
+            video_codec: "libopus",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("96k"),
+            quality: None,
+            compression: None,
+        },
+        _ => FormatConfig {
+            video_codec: "libopus",
+            audio_codec: None,
+            preset: None,
+            crf: None,
+            bitrate: Some("128k"),
+            quality: None,
+            compression: None,
+        },
     }
 }

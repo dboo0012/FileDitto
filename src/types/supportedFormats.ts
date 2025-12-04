@@ -507,6 +507,8 @@ export const FILE_TYPE_PATTERNS: FileTypePattern[] = [
 export const BACKEND_SUPPORTED_FORMATS: SupportedFormat[] = [
   // Video formats
   'mp4', 'webm', 'avi', 'mov',
+  // Audio formats
+  'mp3', 'aac', 'wav', 'flac', 'ogg', 'm4a', 'opus',
   // Image formats  
   'jpeg', 'png', 'webp', 'bmp', 'tiff'
 ];

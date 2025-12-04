@@ -213,8 +213,9 @@ async fn perform_conversion(
     let ffmpeg_path = path::ffmpeg_path();
     println!("🔧 Using FFmpeg path: {}", ffmpeg_path.display());
 
-    // Determine if this is an image conversion
+    // Determine the conversion type
     let is_image_conversion = is_image_format(&options.output_format);
+    let is_audio_conversion = is_audio_format(&options.output_format);
 
     // Build FFmpeg command based on output format
     let mut cmd = Command::new(&ffmpeg_path);
@@ -224,8 +225,12 @@ async fn perform_conversion(
         // Apply image-specific settings
         println!("🖼️ Applying image settings for: {}", options.output_format);
         apply_image_settings(&mut cmd, options)?;
+    } else if is_audio_conversion {
+        // Apply audio-specific settings
+        println!("🎵 Applying audio settings for: {}", options.output_format);
+        apply_audio_settings(&mut cmd, options)?;
     } else {
-        // Apply format-specific arguments for video/audio
+        // Apply format-specific arguments for video
         println!("🎬 Applying format settings for: {}", options.output_format);
         apply_format_settings(&mut cmd, options)?;
     }
@@ -392,6 +397,11 @@ fn is_image_format(format: &str) -> bool {
     matches!(format, "jpeg" | "png" | "webp" | "bmp" | "tiff")
 }
 
+/// Check if the given format is an audio format
+fn is_audio_format(format: &str) -> bool {
+    matches!(format, "mp3" | "aac" | "m4a" | "wav" | "flac" | "ogg" | "opus")
+}
+
 /// Applies image-specific FFmpeg settings based on the conversion options
 fn apply_image_settings(cmd: &mut Command, options: &ConversionOptions) -> Result<()> {
     println!(
@@ -469,6 +479,50 @@ fn apply_image_settings(cmd: &mut Command, options: &ConversionOptions) -> Resul
         options.quality, options.output_format
     );
     println!("✅ Image settings applied successfully");
+
+    Ok(())
+}
+
+/// Applies audio-specific FFmpeg settings based on the conversion options
+fn apply_audio_settings(cmd: &mut Command, options: &ConversionOptions) -> Result<()> {
+    println!(
+        "🎵 Configuring audio settings for: {}",
+        options.output_format
+    );
+
+    // Check if custom audio settings are provided
+    if let Some(custom) = &options.custom_settings {
+        if let Some(audio_settings) = &custom.audio {
+            println!("🎵 Using custom audio settings: {audio_settings:?}");
+            conversion_settings::apply_custom_audio_settings(
+                cmd,
+                audio_settings,
+                &options.output_format,
+            );
+            println!("✅ Custom audio settings applied successfully");
+            return Ok(());
+        }
+    }
+
+    // Fall back to preset-based configuration
+    let config = conversion_settings::get_format_config(&options.output_format, &options.quality)?;
+
+    // For audio formats, the "video_codec" field actually contains the audio codec
+    cmd.args(["-c:a", config.video_codec]);
+
+    // Apply bitrate if specified
+    if let Some(bitrate) = config.bitrate {
+        cmd.args(["-b:a", bitrate]);
+    }
+
+    // No video stream for audio-only output
+    cmd.args(["-vn"]);
+
+    println!(
+        "📊 Quality: {} for format: {}",
+        options.quality, options.output_format
+    );
+    println!("✅ Audio settings applied successfully");
 
     Ok(())
 }
