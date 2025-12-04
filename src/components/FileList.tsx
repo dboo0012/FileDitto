@@ -21,6 +21,7 @@ import { TauriAPI } from "../utils/tauri";
 import { FormatUtils, MediaType, MediaTypeFormats } from "../types/supportedFormats";
 import { ImagePreview } from "./ImagePreview";
 import { VideoPreview } from "./VideoPreview";
+import { AudioPreview } from "./AudioPreview";
 
 // Maximum number of files to show per group initially
 const INITIAL_DISPLAY_LIMIT = 20;
@@ -57,7 +58,21 @@ export const FileList: React.FC<FileListProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<MediaType>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Set<MediaType>>(new Set());
+  const [expandedAudioPlayers, setExpandedAudioPlayers] = useState<Set<string>>(new Set());
   const formatFileSize = TauriAPI.formatFileSize;
+
+  // Toggle audio player visibility for a file
+  const toggleAudioPlayer = (fileId: string) => {
+    setExpandedAudioPlayers(prev => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
+      return next;
+    });
+  };
 
   // Toggle collapse state for a media type group
   const toggleGroupCollapse = (mediaType: MediaType) => {
@@ -359,8 +374,144 @@ export const FileList: React.FC<FileListProps> = ({
                       const mediaType = FormatUtils.detectMediaType(file.name);
                       const isImage = mediaType === "image";
                       const isVideo = mediaType === "video";
+                      const isAudioFile = mediaType === "audio";
                       const displayFormat = getDisplayOutputFormat(file);
                       
+                      // Audio files - clickable icon to expand player
+                      if (isAudioFile) {
+                        const isPlayerExpanded = expandedAudioPlayers.has(file.id);
+                        
+                        return (
+                          <React.Fragment key={file.id}>
+                            {/* Info row for audio */}
+                            <tr className={`hover:bg-gray-50 transition-colors ${isSelected ? 'bg-blue-50' : ''}`}>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                  checked={isSelected}
+                                  onChange={(e) => handleSelectOne(file.id, e.target.checked)}
+                                />
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center">
+                                  {/* Clickable music icon to toggle player */}
+                                  <button
+                                    onClick={() => toggleAudioPlayer(file.id)}
+                                    className={`
+                                      relative flex-shrink-0 h-10 w-10 rounded-lg flex items-center justify-center mr-3 
+                                      border transition-all duration-200 cursor-pointer group
+                                      ${isPlayerExpanded 
+                                        ? 'bg-blue-500 border-blue-500 text-white' 
+                                        : 'bg-gradient-to-br from-gray-700 to-gray-900 border-gray-600 hover:border-blue-400'
+                                      }
+                                    `}
+                                    title={isPlayerExpanded ? "Hide player" : "Preview audio"}
+                                  >
+                                    <Music className={`h-5 w-5 ${isPlayerExpanded ? 'text-white' : 'text-gray-400'}`} />
+                                    {/* Play overlay on hover when collapsed */}
+                                    {!isPlayerExpanded && (
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/40 rounded-lg transition-all duration-200">
+                                        <div className="w-5 h-5 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-200">
+                                          <div className="w-0 h-0 border-l-[6px] border-l-gray-800 border-y-[4px] border-y-transparent ml-0.5" />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </button>
+                                  <div className="min-w-0 overflow-hidden">
+                                    <div className="text-sm font-medium text-gray-900 truncate max-w-[200px] sm:max-w-[400px]" title={file.name}>
+                                      {file.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {file.metadata?.duration}
+                                    </div>
+                                    {file.status === "error" && file.errorMessage && (
+                                      <div className="text-xs text-red-600 truncate max-w-xs mt-0.5">
+                                        {file.errorMessage}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {formatFileSize(file.size)}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                {displayFormat ? (
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                    ${file.outputFormat 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : 'bg-gray-100 text-gray-600 border border-dashed border-gray-300'
+                                    }`}>
+                                    {displayFormat.toUpperCase()}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400 text-xs italic">Select format</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                  ${file.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                    file.status === 'error' ? 'bg-red-100 text-red-800' : 
+                                    file.status === 'converting' ? 'bg-blue-100 text-blue-800' : 
+                                    file.status === 'cancelled' ? 'bg-orange-100 text-orange-800' : 
+                                    'bg-gray-100 text-gray-800'}`}>
+                                  {getStatusText(file)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                <div className="flex items-center justify-end space-x-2">
+                                  {onShowMetadata && (
+                                    <button
+                                      onClick={() => onShowMetadata(file)}
+                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Info"
+                                    >
+                                      <Info className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {file.status === "completed" && onOpenFolder && (
+                                    <button
+                                      onClick={() => onOpenFolder(file.outputPath || file.path)}
+                                      className="text-gray-400 hover:text-blue-600 transition-colors"
+                                      title="Open Folder"
+                                    >
+                                      <FolderOpen className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                  {file.status === "converting" && file.conversionId && onCancel ? (
+                                    <button
+                                      onClick={() => onCancel(file.conversionId!)}
+                                      className="text-orange-400 hover:text-orange-600 transition-colors"
+                                      title="Cancel"
+                                    >
+                                      <StopCircle className="h-4 w-4" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => onRemove(file.id)}
+                                      className="text-gray-400 hover:text-red-600 transition-colors"
+                                      title="Remove"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                            {/* Audio player row - spans full width */}
+                            {isPlayerExpanded && (
+                              <tr className={`${isSelected ? 'bg-blue-50' : ''}`}>
+                                <td colSpan={6} className="px-4 pb-4 pt-0 border-b border-gray-100">
+                                  <AudioPreview file={file} compact showFileName={false} />
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      }
+                      
+                      // Non-audio files use the standard single row layout
                       return (
                         <tr 
                           key={file.id} 

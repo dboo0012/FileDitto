@@ -11,6 +11,7 @@ import { FileMetadata, ConversionStatus } from "../types/tauri";
 import { TauriAPI } from "../utils/tauri";
 import { ImagePreview } from "./ImagePreview";
 import { VideoPreview } from "./VideoPreview";
+import { AudioPreview } from "./AudioPreview";
 
 export interface FileItem {
   id: string;
@@ -124,6 +125,13 @@ export const FileListItem = ({
           {file.status === "error" && file.errorMessage && (
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
               {file.errorMessage}
+            </div>
+          )}
+
+          {/* Audio preview player */}
+          {file.type === "audio" && (
+            <div className="mt-2 max-w-sm">
+              <AudioPreview file={file} compact showFileName={false} />
             </div>
           )}
         </div>
