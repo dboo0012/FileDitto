@@ -38,6 +38,23 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "FileDitto",
+    "category": "Utility",
+    "shortDescription": "Convert media files with ease using FFmpeg",
+    "longDescription": "FileDitto is a powerful desktop application that leverages FFmpeg to convert video, audio, and image files. Features include batch processing, metadata management, and format selection.",
+    "windows": { 
+      "certificateThumbprint": null,
+      "timestampUrl": null,
+      "allowDowngrades": true
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
   }
 }
