@@ -14,11 +14,8 @@ interface UseUpdaterState {
   progress: number | null;
   errorMessage: string | null;
   checkForUpdates: () => Promise<void>;
+  clearError: () => void;
 }
-
-const isTauriEnvironment = (): boolean => {
-  return typeof window !== "undefined" && "__TAURI__" in window;
-};
 
 export const useUpdater = (): UseUpdaterState => {
   const [status, setStatus] = useState<UpdaterStatus>("idle");
@@ -26,10 +23,6 @@ export const useUpdater = (): UseUpdaterState => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const runUpdateCheck = useCallback(async () => {
-    if (!isTauriEnvironment()) {
-      return;
-    }
-
     try {
       setStatus("checking");
       setErrorMessage(null);
@@ -45,8 +38,12 @@ export const useUpdater = (): UseUpdaterState => {
       setStatus("downloading");
 
       await update.downloadAndInstall((event) => {
+        let contentLength: number | undefined = undefined;
+        if (event.event === "Started") {
+          contentLength = event.data.contentLength;
+        }
         if (event.event === "Progress") {
-          setProgress(event.downloadedBytes / event.contentLength);
+          setProgress(event.data.chunkLength / (contentLength ?? 0));
         }
       });
 
@@ -55,14 +52,16 @@ export const useUpdater = (): UseUpdaterState => {
       console.error("Updater error", error);
       setStatus("error");
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to check for updates"
+        error instanceof Error
+          ? error.message
+          : "Failed to check for updates. Try again later."
       );
     }
   }, []);
 
   useEffect(() => {
     // Background check on app start
-    void runUpdateCheck();
+    runUpdateCheck();
   }, [runUpdateCheck]);
 
   return {
@@ -70,5 +69,10 @@ export const useUpdater = (): UseUpdaterState => {
     progress,
     errorMessage,
     checkForUpdates: runUpdateCheck,
+    clearError: () => {
+      setErrorMessage(null);
+      setProgress(null);
+      setStatus("idle");
+    },
   };
 };
