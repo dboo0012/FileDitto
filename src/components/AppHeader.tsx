@@ -1,5 +1,6 @@
 import React from "react";
 import dittoLogo from "/ditto.png";
+import { useUpdater } from "../hooks/useUpdater";
 
 interface AppHeaderProps {
   ffmpegAvailable: boolean | null;
@@ -9,6 +10,11 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   ffmpegAvailable,
 }) => {
+  const { status, progress, checkForUpdates, errorMessage } = useUpdater();
+
+  const showUpdateIndicator = status === "checking" || status === "downloading";
+  const showReadyIndicator = status === "ready";
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -46,14 +52,43 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
             )}
           </div>
-          {/* <button
-            onClick={onOpenSettings}
-            className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Settings
-          </button> */}
+
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={() => {
+                void checkForUpdates();
+              }}
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              {showUpdateIndicator && (
+                <span className="mr-2 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
+                </span>
+              )}
+              {status === "checking" && "Checking for updates..."}
+              {status === "downloading" &&
+                (progress !== null
+                  ? `Downloading update (${Math.round(progress * 100)}%)`
+                  : "Downloading update...")}
+              {showReadyIndicator && "Update ready - restart app"}
+              {status === "upToDate" && "You’re up to date"}
+              {status === "idle" && "Check for updates"}
+              {status === "error" && "Update check failed"}
+            </button>
+          </div>
         </div>
+        {showReadyIndicator && (
+          <div className="mt-2 text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-md px-3 py-1.5">
+            An update has been downloaded. Please restart FileDitto to apply it.
+          </div>
+        )}
+        {status === "error" && errorMessage && (
+          <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-100 rounded-md px-3 py-1.5">
+            {errorMessage}
+          </div>
+        )}
       </div>
     </header>
   );
