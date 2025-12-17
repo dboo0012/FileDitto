@@ -1,5 +1,4 @@
 import React from "react";
-import { Settings } from "lucide-react";
 import dittoLogo from "/ditto.png";
 
 interface AppHeaderProps {
@@ -9,7 +8,6 @@ interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   ffmpegAvailable,
-  onOpenSettings,
 }) => {
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -48,13 +46,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               </div>
             )}
           </div>
-          <button
+          {/* <button
             onClick={onOpenSettings}
             className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
           >
             <Settings className="h-4 w-4 mr-2" />
             Settings
-          </button>
+          </button> */}
         </div>
       </div>
     </header>

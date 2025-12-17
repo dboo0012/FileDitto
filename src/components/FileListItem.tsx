@@ -1,7 +1,4 @@
 import {
-  FileText,
-  CheckCircle,
-  AlertCircle,
   X,
   Info,
   StopCircle,
@@ -43,22 +40,6 @@ export const FileListItem = ({
   onOpenFolder,
 }: FileListItemProps) => {
   const formatFileSize = TauriAPI.formatFileSize;
-
-  const getStatusIcon = () => {
-    if (file.status === "completed") {
-      return <CheckCircle className="h-5 w-5 text-green-500" />;
-    } else if (file.status === "error") {
-      return <AlertCircle className="h-5 w-5 text-red-500" />;
-    } else if (file.status === "cancelled") {
-      return <StopCircle className="h-5 w-5 text-orange-500" />;
-    } else if (file.status === "converting") {
-      return (
-        <div className="h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-      );
-    } else {
-      return <FileText className="h-5 w-5 text-gray-400" />;
-    }
-  };
 
   const getStatusText = () => {
     if (file.status === "completed") {

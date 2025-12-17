@@ -5,7 +5,6 @@ import {
   VideoQualitySettings,
   AudioQualitySettings,
   ImageQualitySettings,
-  VideoEncoder,
   VideoResolution,
   FrameRate,
   VIDEO_ENCODER_LABELS,

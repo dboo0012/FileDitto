@@ -9,7 +9,6 @@ import {
 import { FileItem } from "./FileListItem";
 import {
   FormatUtils,
-  SupportedFormat,
   SUPPORTED_FORMATS,
   MediaType,
   MediaTypeFormats,

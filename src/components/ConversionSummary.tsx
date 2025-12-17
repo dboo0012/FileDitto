@@ -65,7 +65,6 @@ export const ConversionSummary: React.FC<ConversionSummaryProps> = ({
   );
 
   // Calculate total progress if converting
-  const totalActive = completedFiles.length + convertingFiles.length + errorFiles.length;
   const totalToProcess = files.length;
   const progressPercentage = totalToProcess > 0 ? Math.round(((completedFiles.length + errorFiles.length) / totalToProcess) * 100) : 0;
 
