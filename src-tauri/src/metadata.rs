@@ -5,6 +5,9 @@ use crate::types::FileMetadata;
 use std::path::Path;
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 // Extracts metadata from a media file using FFprobe.
 #[tauri::command]
 pub async fn extract_file_metadata(file_path: String) -> Result<FileMetadata, String> {
@@ -16,14 +19,22 @@ pub async fn extract_file_metadata(file_path: String) -> Result<FileMetadata, St
 
     let ffprobe_path = path::ffprobe_path();
 
-    let output = Command::new(&ffprobe_path)
-        .args([
-            "-v", "quiet",
-            "-print_format", "json",
-            "-show_format",
-            "-show_streams",
-            &file_path,
-        ])
+    #[cfg(target_os = "windows")]
+    use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+
+    let mut cmd = Command::new(&ffprobe_path);
+    cmd.args([
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        &file_path,
+    ]);
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to execute ffprobe: {e}"))?;
 
