@@ -39,6 +39,12 @@ fn kill_process(process_id: u32) -> std::result::Result<(), String> {
                 .creation_flags(CREATE_NO_WINDOW)
                 .output()
         }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new("kill")
+                .args(["-9", &process_id.to_string()])
+                .output()
+        }
     };
 
     match result {
