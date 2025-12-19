@@ -29,6 +29,23 @@ Convert any files to your desired format. A ffmpeg-based media conversion tool, 
 
 Download the latest version from the [Releases](#) page.
 
+### Auto-updates
+
+FileDitto automatically checks for updates against its GitHub Releases feed:
+
+- On app start, the built-in updater checks `latest.json` from the latest GitHub release.
+- If an update is available, it is downloaded in the background and you will see an **update banner** in the header once it is ready.
+- You can also trigger a manual check any time using the **"Check for updates"** button in the app header.
+
+To publish a new version with updates:
+
+1. Bump the `version` in `src-tauri/tauri.conf.json` and `package.json` (e.g. `0.2.0`).
+2. Create and push a matching Git tag (`v0.2.0`).
+3. Run the `publish` GitHub Action (or let it run on tag push).
+4. The workflow builds platform installers and updater artifacts (`latest.json` and update bundles) and attaches them to the GitHub release.
+
+> Note: The updater uses Tauri's signed updater artifacts. Make sure the `TAURI_SIGNING_PRIVATE_KEY` / password secrets are set in GitHub, and that the corresponding public key string is configured in `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`.
+
 ### Platform-Specific Instructions
 
 #### Windows

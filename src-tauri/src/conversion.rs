@@ -11,6 +11,9 @@ use std::process::{Command, Stdio};
 use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 /// Cleans up a partial output file if it exists.
 fn cleanup_partial_output_file(output_path: &str) {
     if Path::new(output_path).exists() {
@@ -26,14 +29,23 @@ fn cleanup_partial_output_file(output_path: &str) {
 /// Kills a process by its ID using platform-specific commands.
 fn kill_process(process_id: u32) -> std::result::Result<(), String> {
     #[cfg(target_os = "windows")]
-    let result = Command::new("taskkill")
-        .args(["/F", "/PID", &process_id.to_string()])
-        .output();
+    use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 
-    #[cfg(not(target_os = "windows"))]
-    let result = Command::new("kill")
-        .args(["-9", &process_id.to_string()])
-        .output();
+    let result = {
+        #[cfg(target_os = "windows")]
+        {
+            Command::new("taskkill")
+                .args(["/F", "/PID", &process_id.to_string()])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Command::new("kill")
+                .args(["-9", &process_id.to_string()])
+                .output()
+        }
+    };
 
     match result {
         Ok(output) if output.status.success() => Ok(()),
@@ -246,6 +258,13 @@ async fn perform_conversion(
     cmd.arg(output_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
+    // Hide console window on Windows
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
     // Log the complete command being executed
     println!("🚀 Executing FFmpeg command: {cmd:?}");
 
@@ -399,7 +418,10 @@ fn is_image_format(format: &str) -> bool {
 
 /// Check if the given format is an audio format
 fn is_audio_format(format: &str) -> bool {
-    matches!(format, "mp3" | "aac" | "m4a" | "wav" | "flac" | "ogg" | "opus")
+    matches!(
+        format,
+        "mp3" | "aac" | "m4a" | "wav" | "flac" | "ogg" | "opus"
+    )
 }
 
 /// Applies image-specific FFmpeg settings based on the conversion options
