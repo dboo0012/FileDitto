@@ -32,7 +32,6 @@ jobs:
             ## FileDitto ${{ github.ref_name }}
 
             ### Downloads
-            # Note: I removed the extra 'v' prefix here because github.ref_name already includes it if you tag as v0.1.0
             | Platform | Download |
             |----------|----------|
             | Windows (64-bit) | [FileDitto_${{ github.ref_name }}_x64-setup.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ github.ref_name }}_x64-setup.exe) |
