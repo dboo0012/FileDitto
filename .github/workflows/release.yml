@@ -18,14 +18,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from tag or input
-        id: get-version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          fi
+      # - name: Get version from tag or input
+      #   id: get-version
+      #   run: |
+      #     if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+      #       echo "version=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+      #     else
+      #       echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      #     fi
 
       - name: Create Release
         id: create-release
@@ -33,23 +33,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.get-version.outputs.version }}
-          release_name: FileDitto v${{ steps.get-version.outputs.version }}
+          tag_name: v${{ github.event.release.tag_name }}
+          release_name: FileDitto v${{ github.event.release.tag_name }}
           draft: false
           prerelease: false
           body: |
-            ## FileDitto v${{ steps.get-version.outputs.version }}
+            ## FileDitto v${{ github.event.release.tag_name }}
 
             ### Downloads
 
             | Platform | Download |
             |----------|----------|
-            | Windows (64-bit) | [FileDitto_${{ steps.get-version.outputs.version }}_x64-setup.exe](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/FileDitto_${{ steps.get-version.outputs.version }}_x64-setup.exe) |
-            | Windows MSI | [FileDitto_${{ steps.get-version.outputs.version }}_x64_en-US.msi](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/FileDitto_${{ steps.get-version.outputs.version }}_x64_en-US.msi) |
-            | macOS (Apple Silicon) | [FileDitto_${{ steps.get-version.outputs.version }}_aarch64.dmg](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/FileDitto_${{ steps.get-version.outputs.version }}_aarch64.dmg) |
-            | macOS (Intel) | [FileDitto_${{ steps.get-version.outputs.version }}_x64.dmg](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/FileDitto_${{ steps.get-version.outputs.version }}_x64.dmg) |
-            | Linux (64-bit) | [FileDitto_${{ steps.get-version.outputs.version }}_amd64.deb](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/fileditto_${{ steps.get-version.outputs.version }}_amd64.deb) |
-            | Linux AppImage | [FileDitto_${{ steps.get-version.outputs.version }}_amd64.AppImage](https://github.com/${{ github.repository }}/releases/download/v${{ steps.get-version.outputs.version }}/fileditto_${{ steps.get-version.outputs.version }}_amd64.AppImage) |
+            | Windows (64-bit) | [FileDitto_${{ github.event.release.tag_name }}_x64-setup.exe](https://github.com/${{ github.repository }}/releases/download/v${{ github.event.release.tag_name }}/FileDitto_${{ github.event.release.tag_name }}_x64-setup.exe) |
+            | Windows MSI | [FileDitto_${{ github.event.release.tag_name }}_x64_en-US.msi](https://github.com/${{ github.repository }}/releases/download/v${{ github.event.release.tag_name }}/FileDitto_${{ github.event.release.tag_name }}_x64_en-US.msi) |
+            | macOS (Apple Silicon) | [FileDitto_${{ github.event.release.tag_name }}_aarch64.dmg](https://github.com/${{ github.repository }}/releases/download/v${{ github.event.release.tag_name }}/FileDitto_${{ github.event.release.tag_name }}_aarch64.dmg) |
+            | macOS (Intel) | [FileDitto_${{ github.event.release.tag_name }}_x64.dmg](https://github.com/${{ github.repository }}/releases/download/v${{ github.event.release.tag_name }}/FileDitto_${{ github.event.release.tag_name }}_x64.dmg) |
+            | Linux (64-bit) | [FileDitto_${{ github.event.release.tag_name }}_amd64.deb](https://github.com/${{ github.repository }}/releases/download/v${{ github.event.release.tag_name }}/fileditto_${{ github.event.release.tag_name }}_amd64.deb) |
+            | Linux AppImage | [FileDitto_${{ github.event.release.tag_name }}_amd64.AppImage](https://github.com/${{ github.repository }}/releases/download/v${{ github.event.release.tag_name }}/fileditto_${{ github.event.release.tag_name }}_amd64.AppImage) |
 
   build-tauri:
     needs: create-release
