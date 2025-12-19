@@ -29,13 +29,13 @@ jobs:
 
       - name: Create Release
         id: create-release
-        uses: actions/create-release@v1
+        uses: comnoco/create-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.get-version.outputs.version }}
           release_name: FileDitto v${{ steps.get-version.outputs.version }}
-          draft: true
+          draft: false
           prerelease: false
           body: |
             ## FileDitto v${{ steps.get-version.outputs.version }}
