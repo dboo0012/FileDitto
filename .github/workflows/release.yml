@@ -18,6 +18,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Extract Clean Version number
+        shell: bash
+        run: |
+          echo "CLEAN_VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
       - name: Create Release
         id: create-release
         uses: comnoco/create-release-action@v2
@@ -31,15 +36,14 @@ jobs:
           body: |
             ## FileDitto ${{ github.ref_name }}
 
-            ### Downloads
             | Platform | Download |
             |----------|----------|
-            | Windows (64-bit) | [FileDitto_${{ github.ref_name }}_x64-setup.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ github.ref_name }}_x64-setup.exe) |
-            | Windows MSI | [FileDitto_${{ github.ref_name }}_x64_en-US.msi](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ github.ref_name }}_x64_en-US.msi) |
-            | macOS (Apple Silicon) | [FileDitto_${{ github.ref_name }}_aarch64.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ github.ref_name }}_aarch64.dmg) |
-            | macOS (Intel) | [FileDitto_${{ github.ref_name }}_x64.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ github.ref_name }}_x64.dmg) |
-            | Linux (64-bit) | [FileDitto_${{ github.ref_name }}_amd64.deb](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fileditto_${{ github.ref_name }}_amd64.deb) |
-            | Linux AppImage | [FileDitto_${{ github.ref_name }}_amd64.AppImage](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fileditto_${{ github.ref_name }}_amd64.AppImage) |
+            | Windows (64-bit) | [FileDitto_${{ env.CLEAN_VERSION }}_x64-setup.exe](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ env.CLEAN_VERSION }}_x64-setup.exe) |
+            | Windows MSI | [FileDitto_${{ env.CLEAN_VERSION }}_x64_en-US.msi](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ env.CLEAN_VERSION }}_x64_en-US.msi) |
+            | macOS (Apple Silicon) | [FileDitto_${{ env.CLEAN_VERSION }}_aarch64.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ env.CLEAN_VERSION }}_aarch64.dmg) |
+            | macOS (Intel) | [FileDitto_${{ env.CLEAN_VERSION }}_x64.dmg](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/FileDitto_${{ env.CLEAN_VERSION }}_x64.dmg) |
+            | Linux (64-bit) | [fileditto_${{ env.CLEAN_VERSION }}_amd64.deb](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fileditto_${{ env.CLEAN_VERSION }}_amd64.deb) |
+            | Linux AppImage | [fileditto_${{ env.CLEAN_VERSION }}_amd64.AppImage](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/fileditto_${{ env.CLEAN_VERSION }}_amd64.AppImage) |
 
   build-tauri:
     needs: create-release
