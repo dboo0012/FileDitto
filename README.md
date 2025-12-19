@@ -111,6 +111,15 @@ Built files will be in `src-tauri/target/release/bundle/`:
 - **macOS**: `dmg/` folder
 - **Linux**: `deb/` or `appimage/` folders
 
+## Publish a release
+
+The release workflow has already been defined to use tagged release.
+
+1. ```git tag v*.*.*```
+2. ```git push origin v*.*.*```
+
+GitHub will detect the tag and start the publish workflow automatically.
+
 ## Built with
 
 ![Tauri](https://img.shields.io/badge/Tauri-24C8D8?logo=tauri&logoColor=white&style=flat)
